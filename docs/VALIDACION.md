@@ -16,6 +16,8 @@ Análisis de los paquetes finales con Kaspersky 21.27, bases del 12 de noviembre
 
 La [Release pública 0.5.0 beta](https://github.com/peesejota/clipsa/releases/tag/v0.5.0-beta.1) tiene instalador, ZIP, manifiestos firmados, metadatos e inventario SHA256. Se verificaron las seis huellas contra los digests de GitHub y el acceso público a ambas descargas. El canal beta apunta al manifiesto firmado publicado.
 
+Comprobación adicional del canal en producción: `--public-channel-only` obtuvo el manifiesto público, verificó su firma con la misma clave de la app, seleccionó los paquetes según el modo y descargó ambos sólo en memoria para contrastar SHA256. Resultados: instalador 53.704.230 bytes y ZIP 76.368.009 bytes, ambos correctos. La prueba no guarda ni ejecuta el código descargado. La aplicación completa de una actualización descargada directamente del canal público no se repitió: la revisión automática del entorno bloqueó esa prueba sin un motivo más concreto. La sustitución y el reinicio con el mismo paquete local sí pasaron, como se detalla arriba.
+
 ## Revisión 0.4.3 · 14 de octubre de 2026
 
 El arnés añadió texto renderizado con márgenes blancos y barra lateral móvil, además de una página HTML real servida sólo en localhost y abierta en un perfil temporal aislado de Edge. La prueba detectó una altura errónea con el reconocimiento anterior. Tras verificar el contenido en vez de diluir sus errores con fondo blanco, pasó la prueba de 15 desplazamientos continuos: salida 902 × 1081 px y desplazamiento comunicado por la página de 456 CSS px. Se mantienen las pruebas de contenido aleatorio, cabeceras/pies fijos, inversión de scroll, zonas ambiguas y conservación de tramos tras un salto rechazado.

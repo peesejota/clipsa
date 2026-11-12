@@ -42,6 +42,14 @@ La herramienta firma los dos manifiestos, regenera los hashes, crea un borrador,
 
 5. Copiar **el manifiesto firmado publicado**, sin editarlo, a `updates/beta.json` y subir ese único cambio a `main`. El canal sólo debe avanzar después de publicar y comprobar las descargas. Verificar con la aplicación que una versión anterior lo detecta, descarga el paquete correcto y rechaza modificaciones.
 
+Comprobar el canal público sin ejecutar ni guardar los paquetes descargados:
+
+```powershell
+dotnet run --project verification/Clipsa.Checks.csproj --configuration Release -- --public-channel-only
+```
+
+Esta comprobación valida la firma, la selección instalada/portable y el SHA256 de ambas descargas completas en memoria. No sustituye una prueba del proceso de instalación y reinicio.
+
 No basta con marcar una prerelease como `latest`: GitHub no las ofrece como última versión estable. El canal persistente `updates/beta.json` resuelve esto sin incluir tokens en la app. Una publicación estable futura debe usar su propio canal revisado.
 
 ## Límites de validación

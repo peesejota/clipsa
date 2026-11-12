@@ -11,6 +11,7 @@ internal static class Program
     [STAThread]
     static void Main(string[] args)
     {
+        if (args.Contains("--public-channel-only")) { PublicChannelChecks.RunAsync().GetAwaiter().GetResult(); return; }
         if (args.Contains("--updates-only")) { UpdateChecks.Run(); return; }
         if (args.Contains("--shortcuts-only")) { ShortcutChecks.Run(); return; }
         Environment.SetEnvironmentVariable("CLIPSA_DATA_DIR", System.IO.Path.Combine(System.IO.Path.GetTempPath(), "Clipsa-checks-" + Guid.NewGuid().ToString("N")));
