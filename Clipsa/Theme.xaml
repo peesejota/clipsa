@@ -1,0 +1,10 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation" xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <SolidColorBrush x:Key="Ink" Color="#F8F7FF"/>
+    <SolidColorBrush x:Key="Muted" Color="#B8B8CC"/>
+    <SolidColorBrush x:Key="Glass" Color="#301B2435"/>
+    <SolidColorBrush x:Key="Card" Color="#C51E2438"/>
+    <Style x:Key="ActionButton" TargetType="Button">
+        <Setter Property="Background" Value="Transparent"/><Setter Property="Foreground" Value="{StaticResource Muted}"/>
+        <Setter Property="BorderThickness" Value="0"/><Setter Property="FontSize" Value="16"/><Setter Property="Width" Value="30"/>
+    </Style>
+</ResourceDictionary>

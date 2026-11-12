@@ -1,0 +1,13 @@
+# Privacidad y datos locales
+
+En 0.4.1, los gestos Impr Pant asignados usan un listener de teclado de Windows mientras Clipsa está abierta. Sólo mantiene el estado necesario para esos atajos; no registra texto tecleado ni lo envía a ningún servidor. Los demás gestos se dejan pasar. No se modifica la preferencia de Recortes ni se crean exclusiones antivirus.
+
+Las capturas pueden contener contraseñas, documentos y conversaciones. Clipsa trabaja con archivos locales; el instalador no envía capturas, ajustes ni informes de fallo. Revisa las imágenes antes de exportarlas o compartirlas. La copia al portapapeles, el historial de Windows y las carpetas sincronizadas pueden dar acceso a otras aplicaciones o servicios ajenos a Clipsa.
+
+En portable, la raíz es `<carpeta de Clipsa>\data`; en instalado es `%APPDATA%\Clipsa`. La configuración vive en esa raíz; `logs/` contiene registros e informes locales, y `sessions/<GUID>/` contiene imágenes de sesión. No hay envío automático de informes de fallo. No se afirma que estos archivos estén cifrados; quien tenga acceso a tu perfil, copias de seguridad o carpeta portable puede leerlos. El perfil Roaming puede ser sincronizado por políticas de tu organización.
+
+`RecoverAfterCrash=false` es el valor inicial. La recuperación solo se activa por decisión del usuario y puede conservar capturas para recuperarlas tras un fallo. Los fallos, permisos insuficientes o interrupciones pueden dejar archivos locales incluso con la recuperación desactivada; comprueba las carpetas si necesitas eliminar información sensible. Consulta las pruebas de retención y limpieza pendientes en [VALIDACION.md](VALIDACION.md).
+
+El feed de actualización está vacío por defecto (`UpdateFeedUrl`) y el aviso al iniciar está desactivado (`CheckUpdatesOnStartup=false`). Una consulta manual o el aviso al iniciar activado por el usuario contacta con el servidor HTTPS elegido, que recibe los datos habituales de red, como la IP. Si se configura GitHub, la consulta puede contactar también con sus servidores de descarga mediante redirecciones HTTPS. Abrir la descarga contacta con esos sitios mediante el navegador. No se suben capturas ni se ejecutan descargables automáticamente.
+
+La desinstalación conserva configuración, registros y sesiones. Para borrar esos datos, sal de Clipsa, respalda lo necesario y elimina manualmente la raíz que corresponda. Las imágenes exportadas a otras carpetas se conservan también. El desinstalador solo elimina el valor de inicio `HKCU\Software\Microsoft\Windows\CurrentVersion\Run\Clipsa` si su comando coincide exactamente con el EXE de esa instalación, incluido el formato `"ruta\Clipsa.exe" --background`.

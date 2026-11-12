@@ -1,0 +1,157 @@
+name: Build Clipsa Windows packages
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      draft_release:
+        description: Create a draft Release (never publishes automatically)
+        type: boolean
+        default: false
+      release_tag:
+        description: Tag matching the project version, e.g. v0.4.3-beta.1
+        type: string
+        default: ''
+
+permissions:
+  contents: read
+
+jobs:
+  packages:
+    runs-on: windows-2025
+    timeout-minutes: 30
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-dotnet@v5
+        with:
+          global-json-file: global.json
+      - name: Read and validate version
+        id: version
+        shell: pwsh
+        env:
+          REQUESTED_TAG: ${{ inputs.release_tag }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          [xml]$project = Get-Content Clipsa/Clipsa.csproj
+          $version = [string]$project.Project.PropertyGroup.Version
+          if ($version -notmatch '^\d+\.\d+\.\d+$') { throw 'Invalid project version.' }
+          $tag = if ($env:REQUESTED_TAG) { $env:REQUESTED_TAG } else { "v$version-beta.1" }
+          if ($tag -notmatch ('^v' + [regex]::Escape($version) + '(-beta\.\d+)?$')) { throw 'Tag must match the project version.' }
+          "version=$version" >> $env:GITHUB_OUTPUT
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+      - name: Compile and test update validation (no interactive desktop)
+        shell: pwsh
+        run: |
+          dotnet run --project verification/Clipsa.Checks.csproj --configuration Release -- --updates-only
+          if ($LASTEXITCODE -ne 0) { throw 'Update validation failed.' }
+      - name: Publish self-contained Windows payload
+        shell: pwsh
+        run: |
+          dotnet restore Clipsa/Clipsa.csproj --runtime win-x64 --packages "$env:GITHUB_WORKSPACE/.nuget-ci" -p:SelfContained=true
+          if ($LASTEXITCODE -ne 0) { throw 'Restore failed.' }
+          dotnet publish Clipsa/Clipsa.csproj --configuration Release --runtime win-x64 --self-contained true --no-restore --output staging/installed -p:PublishSingleFile=false -p:PublishTrimmed=false -p:PublishReadyToRun=false
+          if ($LASTEXITCODE -ne 0) { throw 'Publish failed.' }
+      - name: Include documentation and runtime legal notices
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          Copy-Item LICENSE,THIRD-PARTY-NOTICES.md,README.md,CHANGELOG.md staging/installed
+          New-Item -ItemType Directory staging/installed/docs,staging/installed/licenses/runtime-packages -Force | Out-Null
+          Get-ChildItem docs -File -Filter '*.md' | Copy-Item -Destination staging/installed/docs
+          Copy-Item licenses/tendedero-LICENSE.txt staging/installed/licenses
+          Add-Type -AssemblyName System.IO.Compression.FileSystem
+          $inventory = @()
+          foreach ($package in (Get-ChildItem .nuget-ci -Recurse -File -Filter '*.nupkg')) {
+            $zip = [IO.Compression.ZipFile]::OpenRead($package.FullName)
+            try {
+              $index = 0
+              foreach ($entry in $zip.Entries) {
+                if ([IO.Path]::GetFileName($entry.FullName) -match '^(LICENSE|THIRD[-_]PARTY[-_]NOTICES)(\.|$)') {
+                  $index++
+                  $name = $package.BaseName + '.' + $index + '.' + [IO.Path]::GetFileName($entry.FullName)
+                  $target = Join-Path "$env:GITHUB_WORKSPACE/staging/installed/licenses/runtime-packages" $name
+                  [IO.Compression.ZipFileExtensions]::ExtractToFile($entry, $target, $false)
+                  $inventory += @{package=$package.BaseName; source=$entry.FullName; file=$name}
+                }
+              }
+              if (!$index) { throw "No legal text in $($package.Name)." }
+            } finally { $zip.Dispose() }
+          }
+          foreach ($required in @('microsoft.netcore.app.runtime.win-x64', 'microsoft.windowsdesktop.app.runtime.win-x64')) {
+            if (!@($inventory | Where-Object { $_.package.StartsWith($required) }).Count) { throw "Missing legal notices: $required" }
+          }
+          ConvertTo-Json -InputObject @($inventory) -Depth 5 | Set-Content staging/installed/licenses/runtime-packages/inventory.json -Encoding utf8
+      - name: Check bundled runtime and WPF resources
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $report = "$env:RUNNER_TEMP/clipsa-smoke.json"
+          $env:CLIPSA_DATA_DIR = "$env:RUNNER_TEMP/clipsa-smoke-data"
+          $env:DOTNET_ROOT = "$env:RUNNER_TEMP/nonexistent-runtime"
+          $env:DOTNET_ROOT_X64 = $env:DOTNET_ROOT
+          $exe = "$env:GITHUB_WORKSPACE/staging/installed/Clipsa.exe"
+          $process = Start-Process -FilePath $exe -ArgumentList @('--self-test', '--report', "`"$report`"") -PassThru -WindowStyle Hidden
+          if (!$process.WaitForExit(60000)) { $process.Kill(); throw 'Self-test timed out.' }
+          if ($process.ExitCode -ne 0 -or !(Get-Content $report -Raw | ConvertFrom-Json).passed) { throw 'Self-test failed.' }
+      - name: Package installer and portable
+        shell: pwsh
+        env:
+          CLIPSA_VERSION: ${{ steps.version.outputs.version }}
+          CLIPSA_TAG: ${{ steps.version.outputs.tag }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $version = $env:CLIPSA_VERSION
+          $tag = $env:CLIPSA_TAG
+          New-Item -ItemType Directory staging/portable,artifacts | Out-Null
+          Get-ChildItem staging/installed -Force | Copy-Item -Destination staging/portable -Recurse
+          New-Item -ItemType File staging/portable/portable.mode | Out-Null
+          $portableName = "Clipsa-$version-win-x64-portable.zip"
+          $installerName = "Clipsa-$version-win-x64-setup.exe"
+          Compress-Archive -Path staging/portable/* -DestinationPath "artifacts/$portableName" -CompressionLevel Optimal
+          $inno = Join-Path ${env:ProgramFiles(x86)} 'Inno Setup 6/ISCC.exe'
+          if (!(Test-Path $inno)) { throw 'Runner needs Inno Setup 6.' }
+          if ((Get-AuthenticodeSignature $inno).Status -ne 'Valid') { throw 'Invalid compiler signature.' }
+          & $inno /Qp "/DAppVersion=$version" "/DPayloadDir=$env:GITHUB_WORKSPACE/staging/installed" "/DReleaseDir=$env:GITHUB_WORKSPACE/artifacts" "/DRepoDir=$env:GITHUB_WORKSPACE" packaging/Clipsa.iss
+          if ($LASTEXITCODE -ne 0) { throw 'Installer compilation failed.' }
+          $base = "https://github.com/$env:GITHUB_REPOSITORY/releases/download/$tag"
+          foreach ($item in @(@{file=$installerName; manifest='update-manifest.json'}, @{file=$portableName; manifest='update-manifest-portable.json'})) {
+            @{version=$version; downloadUrl="$base/$($item.file)"; sha256=(Get-FileHash "artifacts/$($item.file)" -Algorithm SHA256).Hash.ToLowerInvariant()} | ConvertTo-Json | Set-Content "artifacts/$($item.manifest)" -Encoding utf8NoBOM
+          }
+          @{version=$version; tag=$tag; signed=$false; commit=$env:GITHUB_SHA; runtime=(Get-Content staging/installed/Clipsa.runtimeconfig.json -Raw | ConvertFrom-Json).runtimeOptions.includedFrameworks; innoCompilerSha256=(Get-FileHash $inno).Hash.ToLowerInvariant()} | ConvertTo-Json -Depth 6 | Set-Content artifacts/release.json -Encoding utf8NoBOM
+          $checksums = @(Get-ChildItem artifacts -File | Sort-Object Name | ForEach-Object { (Get-FileHash $_.FullName).Hash.ToLowerInvariant() + '  ' + $_.Name })
+          $checksums | Set-Content artifacts/SHA256SUMS.txt -Encoding utf8NoBOM
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Clipsa-${{ steps.version.outputs.version }}-win-x64
+          path: artifacts/*
+          if-no-files-found: error
+          retention-days: 14
+
+  draft-release:
+    if: github.event_name == 'workflow_dispatch' && inputs.draft_release && github.ref == 'refs/heads/main'
+    needs: packages
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: Clipsa-${{ needs.packages.outputs.version }}-win-x64
+          path: artifacts
+      - name: Create draft only (manual review required)
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GH_REPO: ${{ github.repository }}
+          RELEASE_TAG: ${{ needs.packages.outputs.tag }}
+          SOURCE_COMMIT: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          args=(--draft --target "$SOURCE_COMMIT" --title "Clipsa $RELEASE_TAG" --notes "Draft: review antivirus status, signatures and packages before publishing. Automatic installation is not implemented.")
+          if [[ "$RELEASE_TAG" == *-beta.* ]]; then args+=(--prerelease); fi
+          gh release create "$RELEASE_TAG" artifacts/* "${args[@]}"

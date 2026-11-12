@@ -1,0 +1,30 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <AssemblyName>Clipsa</AssemblyName>
+    <RootNamespace>Clipsa</RootNamespace>
+    <Version>0.4.3</Version>
+    <Description>Clipsa: capturas, edición y scroll manual para Windows.</Description>
+    <Product>Clipsa</Product>
+    <Company>Francisco Serrano Jiménez</Company>
+    <Authors>Francisco Serrano Jiménez</Authors>
+    <Copyright>Copyright © 2026 Francisco Serrano Jiménez</Copyright>
+    <PublishTrimmed>false</PublishTrimmed>
+    <ApplicationIcon>Brand\clipsa-icon.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <!-- WPF initializes the process before Forms dialogs; its DPI mode is declared in the manifest. -->
+    <NoWarn>$(NoWarn);WFAC010;WFO0003</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Resource Include="Brand\clipsa-icon.png" />
+    <Resource Include="Brand\clipsa-icon.ico" />
+  </ItemGroup>
+
+</Project>
