@@ -4,6 +4,8 @@ Capturas, edición y scroll manual en una barra flotante de cristal. Autor: **Fr
 
 [Descargas y versiones](https://github.com/peesejota/clipsa/releases) · [Uso](docs/USO.md) · [Actualizaciones](docs/ACTUALIZACIONES.md) · [Privacidad](docs/PRIVACIDAD.md)
 
+**Descargar 0.5.0 beta:** [Instalador para Windows x64](https://github.com/peesejota/clipsa/releases/download/v0.5.0-beta.1/Clipsa-0.5.0-win-x64-setup.exe) · [ZIP portable](https://github.com/peesejota/clipsa/releases/download/v0.5.0-beta.1/Clipsa-0.5.0-win-x64-portable.zip) · [Cambios y archivos de verificación](https://github.com/peesejota/clipsa/releases/tag/v0.5.0-beta.1).
+
 ## Instalada o portable
 
 Destino probado: Windows 11 x64. Ambos paquetes incluyen .NET/WPF 10.0.15; no necesitas instalar .NET por separado.

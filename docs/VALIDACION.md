@@ -8,6 +8,14 @@ También pasaron las pruebas completas existentes de ajustes atómicos y recuper
 
 Los informes históricos siguientes no se presentan como pruebas nuevas de esta versión. Siguen pendientes un PC limpio y varios monitores físicos/DPI mixto; las limitaciones externas de certificado Authenticode y revisión de Kaspersky no desaparecen por firmar los manifiestos.
 
+Los paquetes finales proceden del [run 43273944990 de GitHub Actions](https://github.com/peesejota/clipsa/actions/runs/43273944990), commit `16d85ed43a94f2d5ea84e38cf00cf8cbce8d62d4`. Pasaron instalación, carga WPF/runtime incluido, reinstalación y desinstalación conservando datos en el runner aislado; también la portable extraída en una ruta con espacios, sin usar un runtime externo. Ambas incluyen .NET/WPF 10.0.15.
+
+Prueba local adicional: actualización completa de una copia portable de QA con versión 0.4.99 a los binarios finales 0.5.0, usando un manifiesto firmado de la Release real. Se comprobaron firma y hash, arranque del proceso auxiliar, sustitución con respaldo, reinicio de la aplicación nueva, conservación de ajustes y una exportación, carpeta `data` original y cierre normal. La prueba no alteró la instalación ni los datos del usuario.
+
+Análisis de los paquetes finales con Kaspersky 21.27, bases del 12 de noviembre de 2026: 1.004 objetos analizados, cero detecciones, sospechas, omisiones, archivos corruptos o errores. El informe permanece local en `docs/verificacion/kaspersky-0.5.0-scan.txt`; no se publican logs privados. Un análisis de archivos sin detecciones no resuelve la alerta histórica de comportamiento.
+
+La [Release pública 0.5.0 beta](https://github.com/peesejota/clipsa/releases/tag/v0.5.0-beta.1) tiene instalador, ZIP, manifiestos firmados, metadatos e inventario SHA256. Se verificaron las seis huellas contra los digests de GitHub y el acceso público a ambas descargas. El canal beta apunta al manifiesto firmado publicado.
+
 ## Revisión 0.4.3 · 14 de octubre de 2026
 
 El arnés añadió texto renderizado con márgenes blancos y barra lateral móvil, además de una página HTML real servida sólo en localhost y abierta en un perfil temporal aislado de Edge. La prueba detectó una altura errónea con el reconocimiento anterior. Tras verificar el contenido en vez de diluir sus errores con fondo blanco, pasó la prueba de 15 desplazamientos continuos: salida 902 × 1081 px y desplazamiento comunicado por la página de 456 CSS px. Se mantienen las pruebas de contenido aleatorio, cabeceras/pies fijos, inversión de scroll, zonas ambiguas y conservación de tramos tras un salto rechazado.
@@ -50,7 +58,9 @@ Fecha: 12 de octubre de 2026. Equipo: Windows 11 IoT Enterprise LTSC x64, build 
 
 Arnés: `verification/Clipsa.Checks.csproj`. Las pruebas de paquetes se ejecutaron con `tools/Test-Packages.ps1`, ya no disponible tras la alerta comunicada de Kaspersky. El informe final se ha conservado en [verificacion/paquetes-final.json](verificacion/paquetes-final.json) y registra explícitamente `elevated=false`, `passed=true` y `cleanMachine=false`. Las carpetas QA de releases se enviaron a la Papelera. Las pruebas gráficas se ejecutaron por separado; el empaquetado final usó `-SkipTests` para no repetir la interacción con el escritorio durante la publicación.
 
-## Lo que no se ha validado todavía
+## Pendientes registrados en 0.4.0 (histórico)
+
+Esta sección describe el estado anterior. La publicación, el canal y las pruebas nuevas de 0.5.0 se detallan al principio del documento.
 
 Cambios posteriores a los paquetes 0.4.0: compilación de la autoría Francisco Serrano Jiménez y pruebas sin red/interfaz de resolución de repositorios GitHub, rechazo de credenciales, feeds HTTPS y redirecciones seguras superadas. La licencia original se comparó con `tendedero-main/LICENSE` y conserva exactamente su texto. Los avisos de actualización aún necesitan una prueba de extremo a extremo con una Release real, y estos cambios no están en los paquetes existentes.
 
@@ -62,4 +72,4 @@ Cambios posteriores a los paquetes 0.4.0: compilación de la autoría Francisco 
 - El workflow de GitHub no se ejecutó en remoto y ya no está disponible en disco.
 - La detección de comportamiento comunicada de Kaspersky sigue sin aclararse: consulta [SEGURIDAD.md](SEGURIDAD.md). El análisis posterior de archivos no ha encontrado amenazas, pero no certifica el comportamiento en ejecución.
 
-No se presenta esta versión como estable ni libre de alertas. Antes de distribuirla públicamente, aclarar la detección de Kaspersky. Después, completar [PRUEBAS-MANUALES.md](PRUEBAS-MANUALES.md) en otro equipo y resolver firma y alojamiento.
+La publicación actual es beta, no una certificación de estabilidad ni de ausencia de alertas. Se mantienen las pruebas externas pendientes y el seguimiento de Kaspersky descritos al principio y en [SEGURIDAD.md](SEGURIDAD.md).
