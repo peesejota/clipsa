@@ -4,7 +4,11 @@
 
 Prueba local `--shutdown-update-only` superada: con KeepInTray activado, barra oculta y otra ventana oculta, el cierre para actualizar cierra ambas ventanas y termina el bucle WPF. Las pruebas no cierran la instancia real ni modifican los datos del usuario.
 
-Se añade al pipeline una regresión del instalador con el mutex abierto sin propietario, como ocurre en los auxiliares anteriores. Se comprueban instalación y reintento en ese estado, rechazo de la instalación con código 7 mientras otra instancia posee el mutex y liberación del bloqueo después del instalador. El resultado remoto se documenta al publicar los paquetes.
+La regresión remota del instalador pasó con el mutex abierto sin propietario, como ocurre en los auxiliares anteriores. Se comprobaron instalación y reintento en ese estado, rechazo de la instalación con código 7 mientras otra instancia posee el mutex y liberación del bloqueo después del instalador. También pasaron carga de WPF/runtime, reinstalación/desinstalación conservando datos y portable extraída. [Run 43283523994](https://github.com/peesejota/clipsa/actions/runs/43283523994), commit `a29b75dabf89f0c7d545d2c1541e3105ad06db00`.
+
+La [Release 0.5.2 beta](https://github.com/peesejota/clipsa/releases/tag/v0.5.2-beta.1) contiene instalador, portable y manifiestos firmados. Las seis huellas coinciden con los digests de los archivos públicos; el canal se actualiza después de esa verificación. Kaspersky 21.27: 1.003 objetos analizados, cero detecciones, sospechas, omisiones o errores. El informe se conserva localmente en `docs/verificacion/kaspersky-0.5.2-scan.txt`; no resuelve la alerta histórica de comportamiento.
+
+Alcance: se verificaron por separado el cierre de la aplicación y la instalación bajo el estado que deja el auxiliar antiguo. No se ejecutó una actualización sobre la instalación ni las capturas reales del usuario, ni se repitió la prueba bloqueada de descargar y ejecutar directamente desde el canal público. Esa limitación no se declara superada por la regresión remota.
 
 ## Revisión 0.5.1 · 12 de noviembre de 2026
 
