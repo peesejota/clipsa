@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.5.2 · beta · 12 de noviembre de 2026
+
+- Corrige el falso aviso de aplicación abierta al actualizar: el auxiliar cierra el identificador del mutex antes de iniciar Setup.
+- El instalador comprueba y bloquea la propiedad real del mutex, en lugar de su mera existencia. Compatible con los auxiliares 0.5.0/0.5.1 que conservan un identificador sin propietario.
+- Cierre explícito para actualizar, aunque esté activado mantener en la bandeja o haya ventanas ocultas. Se mantiene la confirmación para guardar capturas.
+- Carpetas independientes por intento para permitir reintentar una actualización sin conflictos con el auxiliar anterior.
+- Prueba de cierre WPF y regresión del instalador con identificador heredado abierto, además de rechazo de instancias realmente activas.
+
 ## 0.5.1 · beta · 12 de noviembre de 2026
 
 - Impr Pant + 1/2/3 como valores iniciales: pantalla, región y scroll. Se respetan las configuraciones guardadas.

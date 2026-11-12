@@ -11,6 +11,7 @@ internal static class Program
     [STAThread]
     static void Main(string[] args)
     {
+        if (args.Contains("--shutdown-update-only")) { ShutdownUpdateChecks.Run(); return; }
         if (args.Contains("--public-channel-only")) { PublicChannelChecks.RunAsync().GetAwaiter().GetResult(); return; }
         if (args.Contains("--updates-only")) { UpdateChecks.Run(); return; }
         if (args.Contains("--shortcuts-only")) { ShortcutChecks.Run(); return; }

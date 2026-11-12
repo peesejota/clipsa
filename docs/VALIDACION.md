@@ -1,5 +1,11 @@
 # Validación de Clipsa
 
+## Revisión 0.5.2 · 12 de noviembre de 2026
+
+Prueba local `--shutdown-update-only` superada: con KeepInTray activado, barra oculta y otra ventana oculta, el cierre para actualizar cierra ambas ventanas y termina el bucle WPF. Las pruebas no cierran la instancia real ni modifican los datos del usuario.
+
+Se añade al pipeline una regresión del instalador con el mutex abierto sin propietario, como ocurre en los auxiliares anteriores. Se comprueban instalación y reintento en ese estado, rechazo de la instalación con código 7 mientras otra instancia posee el mutex y liberación del bloqueo después del instalador. El resultado remoto se documenta al publicar los paquetes.
+
 ## Revisión 0.5.1 · 12 de noviembre de 2026
 
 Se añadieron secuencias con Impr Pant emitida como pulsación completa o sólo liberación antes del número, además de la combinación mantenida. Se comprueban 1/2/3, teclado numérico, repeticiones, caducidad a 750 ms, cancelación al escribir otras teclas, ausencia de doble captura y conservación de la configuración anterior. Los perfiles nuevos usan Impr Pant + 1/2/3; no se sobrescriben los atajos guardados.

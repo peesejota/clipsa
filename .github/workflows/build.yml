@@ -152,7 +152,20 @@ jobs:
           $env:DOTNET_ROOT_X64 = $env:DOTNET_ROOT
           $setup = "$env:GITHUB_WORKSPACE/artifacts/Clipsa-$env:CLIPSA_VERSION-win-x64-setup.exe"
           $flags = @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-','/TASKS=""',"/DIR=`"$installed`"")
-          Run-Checked $setup $flags
+          # Reproduce 0.5.0/0.5.1: updater releases ownership but retains its handle.
+          # Setup must accept that state, yet still reject a real running instance.
+          $legacyMutex = [System.Threading.Mutex]::new($false, 'Local\Clipsa.Paco.Windows.v1')
+          try {
+            Run-Checked $setup $flags
+            if (!$legacyMutex.WaitOne(0)) { throw 'Setup did not release its application lock.' }
+            try {
+              $blocked = Start-Process -FilePath $setup -ArgumentList $flags -WindowStyle Hidden -PassThru
+              if (!$blocked.WaitForExit(60000)) { $blocked.Kill(); throw 'Running-instance guard timed out.' }
+              if ($blocked.ExitCode -ne 7) { throw "Expected active-instance rejection (7), got $($blocked.ExitCode)." }
+            } finally { $legacyMutex.ReleaseMutex() }
+            # The legacy helper is still alive: an unowned handle must not block retry.
+            Run-Checked $setup $flags
+          } finally { $legacyMutex.Dispose() }
           $report = Join-Path $root 'installed.json'
           Run-Checked (Join-Path $installed 'Clipsa.exe') @('--self-test','--report',"`"$report`"")
           $smoke = Get-Content $report -Raw | ConvertFrom-Json

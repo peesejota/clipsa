@@ -14,7 +14,8 @@ public static class UpdateInstaller
         if (!release.SignatureVerified || release.SignedManifest is null) throw new InvalidDataException("Actualización sin firma de confianza.");
         var root = AppPaths.BaseDirectory.TrimEnd(Path.DirectorySeparatorChar);
         var cache = Path.GetDirectoryName(Path.GetFullPath(package))!;
-        var helper = Path.Combine(cache, "worker"); Directory.CreateDirectory(helper);
+        var attempt = Path.Combine(cache, "apply-" + Guid.NewGuid().ToString("N"));
+        var helper = Path.Combine(attempt, "worker"); Directory.CreateDirectory(helper);
         var inventoryPath = Path.Combine(root, "app-files.json");
         var inventory = JsonSerializer.Deserialize<string[]>(File.ReadAllText(inventoryPath)) ?? throw new InvalidDataException("Falta el inventario de la aplicación.");
         foreach (var relative in inventory.Concat(new[] { "app-files.json" }).Distinct(StringComparer.OrdinalIgnoreCase))
@@ -25,10 +26,10 @@ public static class UpdateInstaller
         if (AppPaths.IsPortable) File.WriteAllText(Path.Combine(helper, "portable.mode"), "");
         using var parent = Process.GetCurrentProcess();
         var plan = new Plan(parent.Id, parent.StartTime.ToUniversalTime().Ticks, root, Path.GetFullPath(package), AppPaths.IsPortable, release.SignedManifest, Environment.GetEnvironmentVariable("CLIPSA_DATA_DIR"));
-        var path = Path.Combine(cache, "apply-plan.json"); File.WriteAllText(path, JsonSerializer.Serialize(plan));
+        var path = Path.Combine(attempt, "apply-plan.json"); File.WriteAllText(path, JsonSerializer.Serialize(plan));
         var start = new ProcessStartInfo(Path.Combine(helper, "Clipsa.exe")) { UseShellExecute = false, WindowStyle = ProcessWindowStyle.Hidden };
         start.ArgumentList.Add("--apply-update"); start.ArgumentList.Add(path);
-        start.Environment["CLIPSA_DATA_DIR"] = Path.Combine(cache, "worker-data");
+        start.Environment["CLIPSA_DATA_DIR"] = Path.Combine(attempt, "worker-data");
         _ = Process.Start(start) ?? throw new IOException("No se pudo iniciar el actualizador.");
     }
     public static int RunWorker(string planPath)
@@ -48,24 +49,24 @@ public static class UpdateInstaller
                 if (!parent.WaitForExit(120_000)) throw new IOException("Clipsa sigue abierta. Guarda tus capturas y ciérrala antes de actualizar.");
             }
             catch (ArgumentException) { /* parent already exited */ }
-            using var updateLock = new Mutex(false, SingleInstance.MutexName);
-            bool locked;
-            try { locked = updateLock.WaitOne(0); } catch (AbandonedMutexException) { locked = true; }
-            if (!locked) throw new IOException("Hay otra copia de Clipsa abierta. La actualización no se aplicará.");
-            try
+            using (var updateLock = new Mutex(false, SingleInstance.MutexName))
             {
-                if (plan.Portable) ApplyPortable(plan.Package, plan.Target, Path.Combine(Path.GetDirectoryName(planPath)!, "transaction"));
-                else
+                bool locked;
+                try { locked = updateLock.WaitOne(0); } catch (AbandonedMutexException) { locked = true; }
+                if (!locked) throw new IOException("Hay otra copia de Clipsa abierta. La actualización no se aplicará.");
+                try
                 {
-                    // Installer's AppMutex must be free; the installer itself coordinates competing starts.
-                    updateLock.ReleaseMutex(); locked = false;
-                    var setup = new ProcessStartInfo(plan.Package) { UseShellExecute = false };
-                    foreach (var argument in new[] { "/SILENT", "/NORESTART", "/SP-", "/DIR=" + plan.Target }) setup.ArgumentList.Add(argument);
-                    using var process = Process.Start(setup) ?? throw new IOException("No se pudo abrir el instalador."); process.WaitForExit();
-                    if (process.ExitCode is not (0 or 3010)) throw new IOException("El instalador terminó con código " + process.ExitCode + ". No se han eliminado tus datos.");
+                    if (plan.Portable) ApplyPortable(plan.Package, plan.Target, Path.Combine(Path.GetDirectoryName(planPath)!, "transaction"));
                 }
+                finally { updateLock.ReleaseMutex(); }
+            } // Close the HANDLE as well as releasing ownership before launching Setup.
+            if (!plan.Portable)
+            {
+                var setup = new ProcessStartInfo(plan.Package) { UseShellExecute = false };
+                foreach (var argument in new[] { "/SILENT", "/NORESTART", "/SP-", "/DIR=" + plan.Target }) setup.ArgumentList.Add(argument);
+                using var process = Process.Start(setup) ?? throw new IOException("No se pudo abrir el instalador."); process.WaitForExit();
+                if (process.ExitCode is not (0 or 3010)) throw new IOException("El instalador terminó con código " + process.ExitCode + ". No se han eliminado tus datos.");
             }
-            finally { if (locked) updateLock.ReleaseMutex(); }
             Restart(plan);
             return 0;
         }

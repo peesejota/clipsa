@@ -94,6 +94,14 @@ public partial class MainWindow : Window
         if (!App.IsFatal) CaptureService.Cleanup();
     }
     private void ExitApplication() { exitRequested = true; Close(); }
+    private void ExitForUpdate()
+    {
+        // Update confirmation and temporary-capture handling have already completed.
+        // Explicit shutdown also closes hidden windows and reaches App.OnExit,
+        // which releases the instance mutex. Hiding in the tray is not sufficient.
+        exitRequested = true;
+        System.Windows.Application.Current.Shutdown();
+    }
     private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled) { if (msg == Native.WM_HOTKEY) { switch (wParam.ToInt32()) { case HotkeyFull: CaptureFull(); break; case HotkeyRegion: CaptureRegion(); break; case HotkeyScroll: CaptureScroll(); break; } handled = true; } return IntPtr.Zero; }
     private void ApplyScale() { PanelRoot.LayoutTransform = new ScaleTransform(settings.PanelScale, settings.PanelScale); }
     private void ApplyGlassBrush()
@@ -175,7 +183,7 @@ public partial class MainWindow : Window
                 }
             }
             else if (System.Windows.MessageBox.Show(this, "¿Actualizar a Clipsa " + release.Version + "? La aplicación se cerrará y volverá a abrirse. Se conservarán tus ajustes.", "Clipsa", MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
-            UpdateInstaller.Start(release, package); ExitApplication();
+            UpdateInstaller.Start(release, package); ExitForUpdate();
         }
         catch (Exception ex) { AppDiagnostics.Log(ex, "Preparar actualización"); System.Windows.MessageBox.Show(this, "No se pudo iniciar: " + ex.Message, "Clipsa"); }
         finally { applyingUpdate = false; }

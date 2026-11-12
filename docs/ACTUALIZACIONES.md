@@ -8,6 +8,10 @@ La instalada descarga el Setup; la portable descarga el ZIP. Se validan HTTPS, f
 
 Al actualizar se ofrece guardar todas las capturas temporales en una carpeta, descartarlas expresamente o cancelar. El programa espera a que la instancia actual cierre antes de modificar archivos. La portable respalda los archivos reemplazados y los restaura si falla la operación. Nunca elimina recursivamente la carpeta de la aplicación. Las capturas exportadas junto al EXE y `data` se conservan. Las copias y descargas quedan en `data/updates` (portable) o en la carpeta de ajustes de la instalada: pueden ocupar espacio y no son capturas de sesión.
 
+Desde 0.5.2, el cierre para actualizar termina explícitamente la aplicación, incluida la bandeja y las ventanas ocultas. El auxiliar libera y cierra su mutex antes de iniciar Setup. El instalador nuevo acepta los identificadores sin propietario que mantienen los auxiliares 0.5.0/0.5.1, pero bloquea la sustitución mientras una instancia real posea el mutex. Por eso puede recibirse esta corrección desde esas versiones. No se finalizan procesos a la fuerza ni se omite el guardado de capturas.
+
+La comprobación anterior usaba [AppMutex de Inno Setup](https://jrsoftware.org/ishelp/topic_setup_appmutex.htm), que considera suficiente la existencia del objeto. La comprobación actual adquiere el mutex y lo mantiene durante la instalación o desinstalación, impidiendo que se abra otra instancia durante la sustitución. Cada intento de actualización prepara su propio auxiliar para permitir reintentos.
+
 Las versiones 0.4.x necesitan actualizar manualmente una primera vez. No prometemos autoactualización de esas versiones antiguas, ni del sistema operativo o de otras aplicaciones. Si Kaspersky bloquea una operación, no se intenta eludirlo: conservar el informe y revisar con el fabricante.
 
 ## Publicador: firma y canal
