@@ -11,6 +11,8 @@ internal static class Program
     [STAThread]
     static void Main(string[] args)
     {
+        if (args.Contains("--scroll-match-only")) { CheckScroll(); ScrollChecks.RunMatcherOnly(); return; }
+        if (args.Contains("--compact-actions-only")) { CompactActionsChecks.Run(); return; }
         if (args.Contains("--capture-cancel-only")) { CaptureCancelChecks.Run(); return; }
         if (args.Contains("--shutdown-update-only")) { ShutdownUpdateChecks.Run(); return; }
         if (args.Contains("--public-channel-only")) { PublicChannelChecks.RunAsync().GetAwaiter().GetResult(); return; }

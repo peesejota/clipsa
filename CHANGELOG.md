@@ -2,6 +2,11 @@
 
 ## 0.5.3 · beta · 12 de noviembre de 2026
 
+- Acciones visibles al pasar sobre una miniatura compacta: vista previa, editar, guardar, copiar, abrir y borrar, con etiquetas al mantener el ratón. Se conserva el arrastre para exportar o reordenar.
+- Scroll con muestreo más frecuente y cola de imágenes adaptada al tamaño de región, hasta ocho vistas pendientes, separada del procesamiento. La miniatura se actualiza sin redibujar todo el historial en cada muestra.
+- Reconoce desplazamientos grandes con una franja corta de solapamiento, manteniendo el rechazo de contenido ajeno o ambiguo. Muestra cómo recuperar un tramo omitido sin detener la sesión.
+- El inicio de scroll espera a que se hayan renderizado y excluido los controles antes de guardar la primera vista y activar la captura.
+
 - Escape y clic derecho cancelan la selección de región antes o durante el arrastre y liberan el ratón sin crear una captura.
 - Cancelación de scroll aunque el foco esté en la web u otra aplicación; se descartan los tramos de la sesión cancelada.
 - También se puede cancelar durante la preparación inicial de la captura; la barra vuelve a su estado anterior.

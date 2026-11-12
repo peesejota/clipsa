@@ -19,6 +19,7 @@ public partial class MainWindow : Window
     private bool checkingUpdate;
     private bool settingsOpen, applyingUpdate;
     private bool windowInitialized;
+    private readonly DispatcherTimer compactHoverTimer = new() { Interval = TimeSpan.FromMilliseconds(180) };
     private PrintScreenShortcuts? printShortcuts;
     private const int HotkeyFull = 9001, HotkeyRegion = 9002, HotkeyScroll = 9003;
     private readonly CaptureStore store = new(); private readonly AppSettings settings = SettingsStore.Load(); private Forms.NotifyIcon? tray; private System.Drawing.Icon? trayIcon; private HwndSource? source; private System.Windows.Point dragStart; private bool collapsed; private bool exitRequested; private FrameworkElement? hoveredCard; private InsertionAdorner? insertion; private FrameworkElement? dragCard; private bool suppressCompactClick; private bool dragInProgress; private bool captureBusy; private string panelMonitor = ""; private readonly List<int> registeredHotkeys = new();
@@ -27,6 +28,12 @@ public partial class MainWindow : Window
     private void Window_Loaded(object sender, RoutedEventArgs e)
     {
         if (windowInitialized) return; windowInitialized = true;
+        compactHoverTimer.Tick += (_, _) =>
+        {
+            compactHoverTimer.Stop();
+            if (!CompactActionsRoot.IsMouseOver && !CompactActionsRoot.IsKeyboardFocusWithin && CompactActionsPopup.PlacementTarget is not FrameworkElement { IsMouseOver: true }) CloseCompactActions();
+        };
+        IsVisibleChanged += (_, _) => { if (!IsVisible) CloseCompactActions(); };
         ApplyScale(); PositionPanel(); source = (HwndSource)PresentationSource.FromVisual(this)!; source.AddHook(WndProc); ApplyGlassBrush();
         RegisterHotkeys();
         using var iconStream = System.Windows.Application.GetResourceStream(new Uri("pack://application:,,,/Clipsa;component/Brand/clipsa-icon.ico"))!.Stream; trayIcon = new System.Drawing.Icon(iconStream, 32, 32); tray = new Forms.NotifyIcon { Visible = true, Text = "Clipsa", Icon = trayIcon }; var menu = new Forms.ContextMenuStrip(); menu.Items.Add("Abrir Clipsa", null, (_, _) => { Show(); Activate(); PositionPanel(); }); menu.Items.Add("Ajustes", null, (_, _) => ShowSettings()); menu.Items.Add(new Forms.ToolStripSeparator()); menu.Items.Add("Captura completa", null, (_, _) => CaptureFull()); menu.Items.Add("Captura de región", null, (_, _) => CaptureRegion()); menu.Items.Add("Captura con scroll", null, (_, _) => CaptureScroll()); menu.Items.Add(new Forms.ToolStripSeparator()); menu.Items.Add("Salir", null, (_, _) => ExitApplication()); tray.ContextMenuStrip = menu; tray.DoubleClick += (_, _) => TogglePanel();
@@ -87,6 +94,7 @@ public partial class MainWindow : Window
     private void UnregisterHotkeys() { printShortcuts?.Dispose(); printShortcuts = null; if (source is null) return; foreach (var id in registeredHotkeys) Native.UnregisterHotKey(source.Handle, id); registeredHotkeys.Clear(); }
     private void Window_Closing(object? sender, System.ComponentModel.CancelEventArgs e)
     {
+        CloseCompactActions();
         if (!App.IsFatal && settings.KeepInTray && !exitRequested) { e.Cancel = true; Hide(); return; }
         updateCancellation.Cancel();
         updateTimer.Stop();
@@ -116,6 +124,7 @@ public partial class MainWindow : Window
     }
     private void PositionPanel()
     {
+        CloseCompactActions();
         var screen = MonitorService.Resolve(panelMonitor.Length > 0 ? panelMonitor : settings.CaptureMonitor);
         var work = MonitorService.WorkArea(screen); var dpi = MonitorService.DpiScale(screen); var scale = settings.PanelScale;
         Width = Math.Min(1100 * scale, Math.Max(240, work.Width - 32)); Height = (collapsed ? 44 : 276) * scale;
@@ -215,6 +224,7 @@ public partial class MainWindow : Window
             if (node is System.Windows.Controls.Primitives.ButtonBase) return;
             node = VisualTreeHelper.GetParent(node);
         }
+        CloseCompactActions();
         dragStart = e.GetPosition(this); dragCard = card; card.CaptureMouse();
     }
     private void Card_MouseUp(object sender, MouseButtonEventArgs e)
@@ -251,6 +261,7 @@ public partial class MainWindow : Window
     }
     private void StartCardDrag(FrameworkElement card, CaptureItem item)
     {
+        CloseCompactActions();
         suppressCompactClick = true; dragInProgress = true; dragCard = null; card.ReleaseMouseCapture();
         var data = CreateDragData(item);
         var oldTransform = card.RenderTransform;
@@ -291,12 +302,16 @@ public partial class MainWindow : Window
     private void HideInsertion() { if (insertion is not null) { var layer = AdornerLayer.GetAdornerLayer(insertion.AdornedElement); layer?.Remove(insertion); } }
     private void Cards_Drop(object sender, System.Windows.DragEventArgs e) { if (!e.Data.GetDataPresent(typeof(CaptureItem))) return; var item = (CaptureItem)e.Data.GetData(typeof(CaptureItem))!; var point = e.GetPosition(CardsScroll); var target = FindDropIndex(point.X); var from = store.Items.IndexOf(item); if (from >= 0) { if (target > from) target--; if (target != from) store.Items.Move(from, Math.Max(0, target)); } HideInsertion(); e.Handled = true; }
     private static CaptureItem Item(object sender) => (CaptureItem)((FrameworkElement)sender).Tag;
-    private void Open_Click(object sender, RoutedEventArgs e) => ExecuteAction(() => Process.Start(new ProcessStartInfo { FileName = Item(sender).FilePath, UseShellExecute = true }), "Abrir captura");
-    private void Annotate_Click(object sender, RoutedEventArgs e) => ExecuteAction(() => OpenAnnotation(Item(sender)), "Editar captura");
-    private void Copy_Click(object sender, RoutedEventArgs e) => ExecuteAction(() => { using var bitmap = new Bitmap(Item(sender).FilePath); Forms.Clipboard.SetImage(bitmap); StatusText.Text = "Copiada"; }, "Copiar captura");
-    private void Save_Click(object sender, RoutedEventArgs e) => ExecuteAction(() =>
+    private void Open_Click(object sender, RoutedEventArgs e) => OpenCapture(Item(sender));
+    private void Annotate_Click(object sender, RoutedEventArgs e) => EditCapture(Item(sender));
+    private void Copy_Click(object sender, RoutedEventArgs e) => CopyCapture(Item(sender));
+    private void Save_Click(object sender, RoutedEventArgs e) => SaveCapture(Item(sender));
+    private void Delete_Click(object sender, RoutedEventArgs e) => DeleteCapture(Item(sender));
+    private void OpenCapture(CaptureItem item) => ExecuteAction(() => Process.Start(new ProcessStartInfo { FileName = item.FilePath, UseShellExecute = true }), "Abrir captura");
+    private void EditCapture(CaptureItem item) => ExecuteAction(() => OpenAnnotation(item), "Editar captura");
+    private void CopyCapture(CaptureItem item) => ExecuteAction(() => { using var bitmap = new Bitmap(item.FilePath); Forms.Clipboard.SetImage(bitmap); StatusText.Text = "Copiada"; }, "Copiar captura");
+    private void SaveCapture(CaptureItem item) => ExecuteAction(() =>
     {
-        var item = Item(sender);
         var requestedFolder = AppPaths.ResolveSaveFolder(settings.SaveFolder);
         var folder = Directory.Exists(requestedFolder) ? requestedFolder : AppPaths.DefaultSaveFolder;
         Directory.CreateDirectory(folder);
@@ -310,7 +325,33 @@ public partial class MainWindow : Window
         }
         StatusText.Text = "Guardada";
     }, "Guardar captura");
-    private void Delete_Click(object sender, RoutedEventArgs e) => ExecuteAction(() => { var item = Item(sender); if (File.Exists(item.FilePath)) File.Delete(item.FilePath); store.Items.Remove(item); }, "Eliminar captura");
+    private void DeleteCapture(CaptureItem item) => ExecuteAction(() => { if (File.Exists(item.FilePath)) File.Delete(item.FilePath); store.Items.Remove(item); }, "Eliminar captura");
+    private void Compact_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e) => ShowCompactActions(sender);
+    private void Compact_GotFocus(object sender, KeyboardFocusChangedEventArgs e) { if (Keyboard.IsKeyDown(Key.Tab)) ShowCompactActions(sender); }
+    private void ShowCompactActions(object sender)
+    {
+        if (!collapsed || captureBusy || settingsOpen || dragInProgress || Mouse.LeftButton == MouseButtonState.Pressed || sender is not FrameworkElement { Tag: CaptureItem item } card) return;
+        compactHoverTimer.Stop();
+        CompactActionsPopup.PlacementTarget = card; CompactActionsPopup.DataContext = item; CompactActionsPopup.IsOpen = true;
+    }
+    private void Compact_MouseLeave(object sender, System.Windows.Input.MouseEventArgs e) { compactHoverTimer.Stop(); compactHoverTimer.Start(); }
+    private void CompactActions_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e) => compactHoverTimer.Stop();
+    private void CloseCompactActions() { compactHoverTimer.Stop(); CompactActionsPopup.IsOpen = false; CompactActionsPopup.DataContext = null; CompactActionsPopup.PlacementTarget = null; }
+    private void CompactActions_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
+    {
+        if (e.Key != Key.Escape) return;
+        CloseCompactActions(); Focus(); e.Handled = true;
+    }
+    private void CompactAction_Click(object sender, RoutedEventArgs e)
+    {
+        var button = (System.Windows.Controls.Button)sender; var item = Item(sender); var action = button.CommandParameter as string;
+        CloseCompactActions(); e.Handled = true;
+        switch (action)
+        {
+            case "Edit": EditCapture(item); break; case "Save": SaveCapture(item); break;
+            case "Copy": CopyCapture(item); break; case "Open": OpenCapture(item); break; case "Delete": DeleteCapture(item); break;
+        }
+    }
     private void ExecuteAction(Action action, string context)
     {
         try { action(); }

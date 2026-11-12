@@ -12,7 +12,7 @@
                 <ScrollViewer x:Name="CompactScroll" Grid.Column="1" Visibility="Collapsed" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled" Margin="8,0" PreviewMouseWheel="HorizontalWheel">
                     <ItemsControl x:Name="CompactCards"><ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate><DataTemplate>
-                            <Border Padding="2" Margin="3,0" Background="#FF272638" BorderBrush="#FFA99BFF" BorderThickness="1" CornerRadius="5" Tag="{Binding}" PreviewMouseLeftButtonDown="Card_MouseDown" PreviewMouseMove="Card_MouseMove" MouseLeftButtonUp="Compact_Click" ToolTip="Clic: editar · Clic derecho: gestionar · Arrastrar: exportar o reordenar">
+                            <Border Padding="2" Margin="3,0" Background="#FF272638" BorderBrush="#FFA99BFF" BorderThickness="1" CornerRadius="5" Tag="{Binding}" Focusable="True" MouseEnter="Compact_MouseEnter" MouseLeave="Compact_MouseLeave" GotKeyboardFocus="Compact_GotFocus" PreviewMouseLeftButtonDown="Card_MouseDown" PreviewMouseMove="Card_MouseMove" MouseLeftButtonUp="Compact_Click" ToolTip="Pasa el ratón para ver las acciones · Clic: editar · Arrastrar: exportar o reordenar">
                                 <Border.ContextMenu><ContextMenu DataContext="{Binding PlacementTarget.DataContext, RelativeSource={RelativeSource Self}}">
                                     <MenuItem Header="Editar" Tag="{Binding}" Click="Annotate_Click"/><MenuItem Header="Abrir" Tag="{Binding}" Click="Open_Click"/>
                                     <MenuItem Header="Copiar" Tag="{Binding}" Click="Copy_Click"/><MenuItem Header="Guardar" Tag="{Binding}" Click="Save_Click"/><MenuItem Header="Eliminar" Tag="{Binding}" Click="Delete_Click"/>
@@ -39,5 +39,20 @@
             </ScrollViewer>
         </Grid>
     </Border>
+    <Popup x:Name="CompactActionsPopup" Placement="Bottom" HorizontalOffset="-66" VerticalOffset="3" AllowsTransparency="True" StaysOpen="True" PopupAnimation="Fade" PreviewKeyDown="CompactActions_KeyDown">
+        <Border x:Name="CompactActionsRoot" Width="184" CornerRadius="14" Background="#F21D1930" BorderBrush="#B0A99BFF" BorderThickness="1" Padding="10" MouseEnter="CompactActions_MouseEnter" MouseLeave="Compact_MouseLeave">
+            <StackPanel>
+                <Image Source="{Binding Preview}" Height="84" Stretch="Uniform" Margin="0,0,0,7"/>
+                <TextBlock Text="{Binding Name}" Foreground="{StaticResource Muted}" TextTrimming="CharacterEllipsis" FontSize="10" Margin="0,0,0,5"/>
+                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                    <Button x:Name="CompactEditButton" Content="✎" CommandParameter="Edit" Tag="{Binding}" Click="CompactAction_Click" Style="{StaticResource ActionButton}" Height="28" ToolTip="Editar y anotar"/>
+                    <Button Content="↓" CommandParameter="Save" Tag="{Binding}" Click="CompactAction_Click" Style="{StaticResource ActionButton}" Height="28" ToolTip="Guardar captura"/>
+                    <Button Content="⧉" CommandParameter="Copy" Tag="{Binding}" Click="CompactAction_Click" Style="{StaticResource ActionButton}" Height="28" ToolTip="Copiar imagen"/>
+                    <Button Content="↗" CommandParameter="Open" Tag="{Binding}" Click="CompactAction_Click" Style="{StaticResource ActionButton}" Height="28" ToolTip="Abrir imagen"/>
+                    <Button x:Name="CompactDeleteButton" Content="×" CommandParameter="Delete" Tag="{Binding}" Click="CompactAction_Click" Style="{StaticResource ActionButton}" Height="28" ToolTip="Eliminar captura"/>
+                </StackPanel>
+            </StackPanel>
+        </Border>
+    </Popup>
     </Grid>
 </Window>

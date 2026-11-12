@@ -9,10 +9,12 @@ using Clipsa;
 internal static class ScrollChecks
 {
     private static readonly BindingFlags Private = BindingFlags.NonPublic | BindingFlags.Instance;
+    public static void RunMatcherOnly() => CheckTextPage();
     public static void Run()
     {
         CheckTextPage();
         CheckContinuous();
+        CheckContinuous(60, 80, 10);
         CheckAcceptHistory();
         if (Environment.GetEnvironmentVariable("CLIPSA_WEB_SCROLL_QA") == "1") BrowserScrollChecks.Run();
     }
@@ -36,6 +38,9 @@ internal static class ScrollChecks
         using (var graphics = System.Drawing.Graphics.FromImage(next)) graphics.FillRectangle(System.Drawing.Brushes.Gray, 786, 230, 10, 100);
         var match = ScrollStitcher.Match(ScrollStitcher.Pixels(first), ScrollStitcher.Pixels(next), 800, 600);
         Require(match.Kind == ScrollStitcher.MatchKind.Matched && match.Offset == 73, "sparse text, white margins and moving scrollbar: " + match);
+        using var fast = page.Clone(new System.Drawing.Rectangle(0, 600, 800, 600), page.PixelFormat);
+        var jump = ScrollStitcher.Match(ScrollStitcher.Pixels(first), ScrollStitcher.Pixels(fast), 800, 600);
+        Require(jump.Kind == ScrollStitcher.MatchKind.Matched && jump.Offset == 520, "fast scroll keeps a short but valid overlap: " + jump);
         Console.WriteLine("Page-like text, white margins and moving scrollbar: OK");
     }
     private static string GuidFromRandom(Random random) => new string(Enumerable.Range(0, random.Next(3, 9)).Select(_ => (char)('a' + random.Next(26))).ToArray());
@@ -45,7 +50,7 @@ internal static class ScrollChecks
         var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(milliseconds) };
         timer.Tick += (_, _) => { timer.Stop(); frame.Continue = false; }; timer.Start(); Dispatcher.PushFrame(frame);
     }
-    private static void CheckContinuous()
+    private static void CheckContinuous(int interval = 90, int increment = 16, int count = 15)
     {
         var pixels = new byte[240 * 1400 * 4]; new Random(31).NextBytes(pixels);
         for (var n = 3; n < pixels.Length; n += 4) pixels[n] = 255;
@@ -59,32 +64,34 @@ internal static class ScrollChecks
         var type = typeof(MainWindow).Assembly.GetType("Clipsa.ScrollCaptureWindow")!;
         var session = (Window)Activator.CreateInstance(type, new object[] { bounds, 250 })!;
         byte[]? first = null;
-        session.Loaded += (_, _) =>
-        {
-            first = (byte[]?)type.GetField("previous", Private)!.GetValue(session);
-            Require(first is not null, "initial frame captured before scrolling");
-        };
         var step = 0; var finishing = false;
-        var ticker = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(90) };
+        var ticker = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(interval) };
         var timeout = new DispatcherTimer { Interval = TimeSpan.FromSeconds(12) };
         timeout.Tick += (_, _) => { timeout.Stop(); session.DialogResult = false; };
         ticker.Tick += (_, _) =>
         {
-            if (++step <= 15) scroller.ScrollToVerticalOffset(step * 16);
-            else if (step >= 18 && !finishing) { finishing = true; type.GetMethod("Finish", Private)!.Invoke(session, null); }
+            if (++step <= count) scroller.ScrollToVerticalOffset(step * increment);
+            else if (step >= count + 3 && !finishing) { finishing = true; type.GetMethod("Finish", Private)!.Invoke(session, null); }
+        };
+        session.ContentRendered += (_, _) =>
+        {
+            first = (byte[]?)type.GetField("previous", Private)!.GetValue(session);
+            Require(first is not null, "initial frame captured before inviting the user to scroll");
+            ticker.Start();
         };
         string? result = null;
         try
         {
-            ticker.Start(); timeout.Start(); session.ShowDialog();
+            timeout.Start(); session.ShowDialog();
             result = (string?)type.GetProperty("ResultPath")!.GetValue(session);
-            Require(result is not null, "continuous scroll creates result");
+            var state = ((TextBlock)type.GetField("status", Private)!.GetValue(session)!).Text;
+            Require(result is not null, "continuous scroll creates result: " + state);
             using var bmp = new System.Drawing.Bitmap(result!);
             var scale = PresentationSource.FromVisual(host)!.CompositionTarget!.TransformToDevice.M22;
-            Require(Math.Abs(bmp.Height - (bounds.Height + 240 * scale)) <= 2, "includes initial and all continuous displacements");
+            Require(Math.Abs(bmp.Height - (bounds.Height + count * increment * scale)) <= 2, "includes initial and all continuous displacements");
             var joined = ScrollStitcher.Pixels(bmp);
             Require(first!.AsSpan(0, bounds.Width * 30 * 4).SequenceEqual(joined.AsSpan(0, bounds.Width * 30 * 4)), "first rows preserved pixel-for-pixel");
-            Console.WriteLine($"Immediate baseline and 15 continuous displacements (90 ms, no per-frame pause): OK ({bmp.Width} x {bmp.Height})");
+            Console.WriteLine($"Immediate baseline and {count} continuous displacements ({interval} ms, {increment} DIP/step): OK ({bmp.Width} x {bmp.Height})");
         }
         finally { ticker.Stop(); timeout.Stop(); if (session.IsVisible) session.Close(); host.Close(); if (result is not null) System.IO.File.Delete(result); }
     }

@@ -55,7 +55,7 @@ public static class ScrollStitcher
         if (fixedBottom >= 0) bottom = fixedBottom;
         else while (bottom < bandLimit && RowDifference(previous, current, width, height - bottom - 1) <= .5) bottom++;
         var body = height - top - bottom;
-        var maximum = body - Math.Max(40, body / 5);
+        var maximum = body - Math.Max(24, body / 16);
         if (maximum < 1) return new(MatchKind.NoOverlap, 0, top, bottom, double.PositiveInfinity);
 
         var errors = new double[maximum * 2 + 1];
@@ -91,7 +91,7 @@ public static class ScrollStitcher
         if (!Enumerable.Range(0, top).Any(y => first.Active[y])) top = 0;
         if (!Enumerable.Range(height - bottom, bottom).Any(y => first.Active[y])) bottom = 0;
         var body = height - top - bottom;
-        var limit = body - Math.Max(48, body / 6);
+        var limit = body - Math.Max(32, body / 16);
         if (limit < 1) return new(MatchKind.NoOverlap, 0, top, bottom, double.PositiveInfinity);
         var candidates = new List<(int Offset, double Error)>();
         for (var offset = -limit; offset <= limit; offset++)

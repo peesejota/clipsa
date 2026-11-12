@@ -20,6 +20,9 @@ internal sealed class ScrollCaptureWindow : Window
     private readonly IntPtr targetWindow;
     private readonly Rectangle? targetBounds;
     private readonly DispatcherTimer timer;
+    private readonly Queue<Bitmap> pending = new();
+    private readonly int queueLimit;
+    private long lastPreview;
     // Offset is the strip's document coordinate, including negative coordinates when scrolling up.
     private readonly List<(Bitmap Image, int Offset)> frames = new();
     private readonly CancellationTokenSource cancellation = new();
@@ -40,6 +43,7 @@ internal sealed class ScrollCaptureWindow : Window
         var screen = Forms.Screen.FromRectangle(bounds);
         if (!screen.Bounds.Contains(bounds)) throw new ArgumentException("The capture must fit inside one monitor.", nameof(bounds));
         region = bounds;
+        queueLimit = (int)Math.Clamp(64_000_000L / ((long)bounds.Width * bounds.Height * 4), 1, 8);
         targetWindow = GetAncestor(WindowFromPoint(new NativePoint { X = bounds.Left + bounds.Width / 2, Y = bounds.Top + bounds.Height / 2 }), 2);
         if (targetWindow != IntPtr.Zero && GetWindowRect(targetWindow, out var original)) targetBounds = original.Rectangle;
         Title = "Clipsa · Scroll"; Width = 520; Height = 260;
@@ -53,15 +57,19 @@ internal sealed class ScrollCaptureWindow : Window
         root.Children.Add(status);
         root.Children.Add(preview);
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
-        var finish = new Button { Content = "Terminar y guardar", Padding = new Thickness(12, 5, 12, 5), Margin = new Thickness(4) };
+        var finish = new Button { Content = "Terminar y guardar", IsEnabled = false, Padding = new Thickness(12, 5, 12, 5), Margin = new Thickness(4) };
         var partial = new Button { Content = "Guardar lo capturado", IsEnabled = false, Padding = new Thickness(8, 5, 8, 5), Margin = new Thickness(4), ToolTip = "Guardar sólo los tramos aceptados, aunque el último desplazamiento no se haya podido unir." };
         var cancel = new Button { Content = "Cancelar", Padding = new Thickness(12, 5, 12, 5), Margin = new Thickness(4) };
         finish.Click += (_, _) => Finish(); cancel.Click += (_, _) => Cancel();
         partial.Click += (_, _) => { if (System.Windows.MessageBox.Show(this, "¿Guardar únicamente los tramos aceptados? La parte final que no se haya unido puede faltar.", "Clipsa", MessageBoxButton.YesNo) == MessageBoxResult.Yes) FinishCore(false); };
         buttons.Children.Add(cancel); buttons.Children.Add(partial); buttons.Children.Add(finish); root.Children.Add(buttons); Content = root;
         // The old three-stable-sample gate skipped the entire gesture during continuous scroll.
-        timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(Math.Clamp(delay / 3, 40, 100)) };
+        // Keep screen sampling independent of matching so short intermediate
+        // views are retained while the previous pair is being processed.
+        timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(Math.Clamp(delay / 10, 16, 40)) };
         timer.Tick += (_, _) => Tick();
+        var controlsReady = false;
+        status.Text = "Preparando captura…";
         Loaded += (_, _) =>
         {
             try { cancelInput = new CaptureCancellation(() => Dispatcher.BeginInvoke(Cancel)); }
@@ -94,12 +102,18 @@ internal sealed class ScrollCaptureWindow : Window
                 controls = safe;
             }
             MonitorService.PlaceWindow(this, controls);
+            controlsReady = true;
+        };
+        ContentRendered += (_, _) =>
+        {
+            if (!controlsReady || previous is not null || finished) return;
+            Native.DwmFlush(); // Placement, WPF rendering and exclusion must all be committed.
             try
             {
                 // Establish the baseline immediately, BEFORE inviting the user to scroll.
                 using var initial = Capture();
                 InitializeFirstFrame(initial, ScrollStitcher.Pixels(initial));
-                partial.IsEnabled = true;
+                partial.IsEnabled = true; finish.IsEnabled = true;
                 status.Text = $"Inicio guardado · {region.Width} × {region.Height} px. Desplaza arriba o abajo, dejando solapamiento. Terminar para guardar · Esc o clic derecho para cancelar.";
                 timer.Start();
             }
@@ -117,6 +131,7 @@ internal sealed class ScrollCaptureWindow : Window
             cancelInput?.Dispose(); cancelInput = null;
             timer.Stop(); cancellation.Cancel();
             finished = true;
+            ClearPending();
             foreach (var frame in frames) frame.Image.Dispose();
             header?.Dispose(); footer?.Dispose();
         };
@@ -148,25 +163,46 @@ internal sealed class ScrollCaptureWindow : Window
         catch { bitmap.Dispose(); throw; }
     }
 
-    private async void Tick()
+    private void Tick()
     {
-        if (finished || processing || finishing || sizeLimitReached) return;
-        processing = true;
+        if (finished || finishing || sizeLimitReached) return;
         try
         {
             if (!TargetUnmoved()) return;
-            using var frame = Capture();
-            var token = cancellation.Token;
-            var pixels = await Task.Run(() => ScrollStitcher.Pixels(frame), token);
-            if (finished) return;
-            // Accept a matched displacement even while moving. Failed/animated frames do not
-            // replace previous, so the first and all already accepted strips remain intact.
-            await Accept(frame, pixels, token);
+            if (pending.Count >= queueLimit)
+            {
+                status.Text = "Procesando los tramos capturados. Reduce un momento la velocidad para mantener todo el recorrido.";
+                return;
+            }
+            pending.Enqueue(Capture());
+            DrainPending();
+        }
+        catch (Exception ex) { AppDiagnostics.Log(ex, "Take manual scroll frame"); timer.Stop(); status.Text = "No se pudo capturar: " + ex.Message; }
+    }
+
+    private async void DrainPending()
+    {
+        if (processing || finished) return;
+        processing = true;
+        try
+        {
+            while (!finished && pending.TryDequeue(out var frame))
+            {
+                using (frame)
+                {
+                    var token = cancellation.Token;
+                    var pixels = await Task.Run(() => ScrollStitcher.Pixels(frame), token);
+                    if (finished) return;
+                    await Accept(frame, pixels, token);
+                }
+                if (sizeLimitReached) { ClearPending(); break; }
+            }
         }
         catch (OperationCanceledException) { }
-        catch (Exception ex) { AppDiagnostics.Log(ex, "Capture manual scroll frame"); timer.Stop(); status.Text = "No se pudo capturar: " + ex.Message; }
+        catch (Exception ex) { AppDiagnostics.Log(ex, "Process manual scroll frame"); timer.Stop(); ClearPending(); status.Text = "No se pudo procesar: " + ex.Message; }
         finally { processing = false; }
     }
+    private void ClearPending() { while (pending.TryDequeue(out var frame)) frame.Dispose(); }
 
     private async Task<bool> Accept(Bitmap frame, byte[] pixels, CancellationToken token)
     {
@@ -188,7 +224,7 @@ internal sealed class ScrollCaptureWindow : Window
         {
             status.Text = match.Kind == ScrollStitcher.MatchKind.Ambiguous
                 ? "Esperando contenido reconocible. Lo capturado se conserva; desplázate más despacio."
-                : "El desplazamiento ha sido demasiado grande o el contenido cambió. Lo capturado se conserva; vuelve un poco hacia arriba y continúa despacio.";
+                : "Falta un tramo por un salto grande o un cambio de contenido. La captura sigue activa: vuelve un poco arriba hasta recuperar la unión y continúa. Lo anterior se conserva.";
             return false;
         }
         if (!bodyInitialized)
@@ -239,10 +275,13 @@ internal sealed class ScrollCaptureWindow : Window
     {
         if (previous is not null) throw new InvalidOperationException("Scroll baseline already initialized.");
         frames.Add((new Bitmap(frame), 0)); previous = pixels; maximum = frame.Height;
-        UpdatePreview();
+        UpdatePreview(true);
     }
-    private void UpdatePreview()
+    private void UpdatePreview(bool force = false)
     {
+        var now = Environment.TickCount64;
+        if (!force && now - lastPreview < 120) return;
+        lastPreview = now;
         var height = maximum - minimum + fixedTop + fixedBottom;
         using var thumb = new Bitmap(180, 90, PixelFormat.Format32bppArgb);
         using (var graphics = Graphics.FromImage(thumb))

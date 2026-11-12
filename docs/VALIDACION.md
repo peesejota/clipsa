@@ -6,6 +6,10 @@ Prueba local `--capture-cancel-only` con eventos de teclado y ratón inyectados:
 
 La prueba mantiene cada pulsación 180 ms, por encima de los 150 ms de preparación: cancelar se procesa al pulsar, no al soltar. Tras cerrar se consume únicamente la liberación de ese gesto, con espera acotada fuera del hilo de interfaz, para no propagar el clic a la ventana capturada.
 
+Scroll: detección de texto con desplazamiento de 520 px sobre una vista de 600 px, contenido repetitivo/ajeno rechazado y sesiones de 15 pasos cada 90 ms (250 × 525 px) y 10 pasos de 80 DIP cada 60 ms (250 × 1225 px). Se verifican altura completa, primeras filas conservadas y recuperación tras un salto rechazado. El inicio se valida después de ContentRendered, antes de invitar a desplazar: no se presenta Loaded por sí solo como prueba de composición lista. La prueba no certifica todos los navegadores ni dispositivos físicos.
+
+Barra compacta: hover real, transferencia del puntero de la miniatura al panel, cinco acciones enlazadas a la captura correcta y explicadas, apertura real del editor y del selector de guardado, cancelación del selector conservando el archivo y eliminación de la captura de QA con su botón. Arnés: `--compact-actions-only`, datos aislados.
+
 ## Revisión 0.5.2 · 12 de noviembre de 2026
 
 Prueba local `--shutdown-update-only` superada: con KeepInTray activado, barra oculta y otra ventana oculta, el cierre para actualizar cierra ambas ventanas y termina el bucle WPF. Las pruebas no cierran la instancia real ni modifican los datos del usuario.

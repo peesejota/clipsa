@@ -74,7 +74,7 @@ internal static class BrowserScrollChecks
             var bounds = new System.Drawing.Rectangle(origin.X + 40, origin.Y + 70, client.Right - 80, client.Bottom - 100);
             var type = typeof(MainWindow).Assembly.GetType("Clipsa.ScrollCaptureWindow")!;
             session = (Window)Activator.CreateInstance(type, new object[] { bounds, 250 })!;
-            session.Loaded += (_, _) => Volatile.Write(ref start, true);
+            session.ContentRendered += (_, _) => Volatile.Write(ref start, true);
             var ticksAfterDone = 0;
             var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
             timer.Tick += (_, _) =>
