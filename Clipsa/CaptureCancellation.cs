@@ -54,7 +54,10 @@ internal sealed class CaptureCancellation : IDisposable
     private void Request()
     {
         if (requested) return;
-        requested = true; cancel(); // caller queues cancellation to its UI dispatcher
+        requested = true;
+        try { cancel(); } // caller queues cancellation to its UI dispatcher
+        catch (Exception ex) when (ex is InvalidOperationException or OperationCanceledException)
+        { /* The receiver may have closed concurrently with the input event. */ }
     }
     private IntPtr Keyboard(int code, IntPtr message, IntPtr data)
     {
