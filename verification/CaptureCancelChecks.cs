@@ -108,8 +108,8 @@ internal static class CaptureCancelChecks
     }
     private static void Gesture(bool right)
     {
-        if (right) { mouse_event(8, 0, 0, 0, UIntPtr.Zero); Thread.Sleep(25); mouse_event(16, 0, 0, 0, UIntPtr.Zero); }
-        else { keybd_event(0x1B, 0, 0, UIntPtr.Zero); Thread.Sleep(25); keybd_event(0x1B, 0, 2, UIntPtr.Zero); }
+        if (right) { mouse_event(8, 0, 0, 0, UIntPtr.Zero); ScrollChecks.Pump(180); mouse_event(16, 0, 0, 0, UIntPtr.Zero); }
+        else { keybd_event(0x1B, 0, 0, UIntPtr.Zero); ScrollChecks.Pump(180); keybd_event(0x1B, 0, 2, UIntPtr.Zero); }
     }
     private static void Require(bool value, string name) { if (!value) throw new Exception(name); }
     [StructLayout(LayoutKind.Sequential)] private struct NativePoint { public int X, Y; }

@@ -4,6 +4,8 @@
 
 Prueba local `--capture-cancel-only` con eventos de teclado y ratón inyectados: Escape y clic derecho cancelan la selección antes y durante el arrastre, sin rectángulo ni captura de ratón retenidos; cancelan el scroll con otra ventana enfocada; y cancelan la preparación de pantalla completa antes de capturar. Se comprobaron ausencia de nuevos PNG, restauración de la barra y posibilidad de usar de nuevo Escape y clic derecho al terminar. Los datos de prueba están aislados de los del usuario.
 
+La prueba mantiene cada pulsación 180 ms, por encima de los 150 ms de preparación: cancelar se procesa al pulsar, no al soltar. Tras cerrar se consume únicamente la liberación de ese gesto, con espera acotada fuera del hilo de interfaz, para no propagar el clic a la ventana capturada.
+
 ## Revisión 0.5.2 · 12 de noviembre de 2026
 
 Prueba local `--shutdown-update-only` superada: con KeepInTray activado, barra oculta y otra ventana oculta, el cierre para actualizar cierra ambas ventanas y termina el bucle WPF. Las pruebas no cierran la instancia real ni modifican los datos del usuario.

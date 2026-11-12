@@ -14,6 +14,8 @@ internal sealed class CaptureCancellation : IDisposable
     private IntPtr keyboardHook, mouseHook;
     private uint threadId;
     private volatile bool disposed;
+    private volatile bool escapeHeld, rightHeld;
+    private long drainDeadline;
     private bool requested;
 
     public CaptureCancellation(Action cancel)
@@ -33,6 +35,13 @@ internal sealed class CaptureCancellation : IDisposable
             if (keyboardHook == IntPtr.Zero) throw new Win32Exception(Marshal.GetLastWin32Error());
             mouseHook = SetWindowsHookEx(14, mouseCallback, GetModuleHandle(null), 0);
             if (mouseHook == IntPtr.Zero) throw new Win32Exception(Marshal.GetLastWin32Error());
+            using var drain = new System.Windows.Forms.Timer { Interval = 25 };
+            drain.Tick += (_, _) =>
+            {
+                if (disposed && ((!escapeHeld && !rightHeld) || Environment.TickCount64 >= drainDeadline))
+                    PostThreadMessage(threadId, 0x12, IntPtr.Zero, IntPtr.Zero);
+            };
+            drain.Start();
             ready.TrySetResult(); System.Windows.Forms.Application.Run();
         }
         catch (Exception ex) { if (!ready.TrySetException(ex)) AppDiagnostics.Log(ex, "Cancelación de captura"); }
@@ -49,29 +58,40 @@ internal sealed class CaptureCancellation : IDisposable
     }
     private IntPtr Keyboard(int code, IntPtr message, IntPtr data)
     {
-        if (code >= 0 && !disposed && (message.ToInt32() is 0x100 or 0x101 or 0x104 or 0x105) && Marshal.ReadInt32(data) == 0x1B)
+        if (code >= 0 && (message.ToInt32() is 0x100 or 0x101 or 0x104 or 0x105) && Marshal.ReadInt32(data) == 0x1B)
         {
-            // Consume the entire gesture before removing the hooks, so its
-            // key-up cannot accidentally dismiss a dialog in the target app.
-            if (message.ToInt32() is 0x101 or 0x105) Request();
-            return new IntPtr(1);
+            if (!disposed && !requested && (message.ToInt32() is 0x100 or 0x104))
+            { escapeHeld = true; Request(); return new IntPtr(1); }
+            if (escapeHeld)
+            {
+                if (message.ToInt32() is 0x101 or 0x105) escapeHeld = false;
+                return new IntPtr(1);
+            }
         }
         return CallNextHookEx(keyboardHook, code, message, data);
     }
     private IntPtr Mouse(int code, IntPtr message, IntPtr data)
     {
-        if (code >= 0 && !disposed && (message.ToInt32() is 0x204 or 0x205))
+        if (code >= 0 && (message.ToInt32() is 0x204 or 0x205))
         {
-            // Swallow down AND up, avoiding a context menu in the captured page.
-            if (message.ToInt32() == 0x205) Request();
-            return new IntPtr(1);
+            if (!disposed && !requested && message.ToInt32() == 0x204)
+            { rightHeld = true; Request(); return new IntPtr(1); }
+            if (rightHeld)
+            {
+                if (message.ToInt32() == 0x205) rightHeld = false;
+                return new IntPtr(1);
+            }
         }
         return CallNextHookEx(mouseHook, code, message, data);
     }
     public void Dispose()
     {
         if (disposed) return;
+        // Cancel on DOWN immediately, but retain only that gesture's release
+        // after the window closes. Never wait for a held key on the UI thread.
+        drainDeadline = Environment.TickCount64 + 2000;
         disposed = true;
+        if (escapeHeld || rightHeld) return;
         if (threadId != 0) PostThreadMessage(threadId, 0x12, IntPtr.Zero, IntPtr.Zero);
         if (Thread.CurrentThread != thread) thread.Join(500);
     }
