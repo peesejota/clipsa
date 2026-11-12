@@ -39,7 +39,7 @@ internal static class ScrollChecks
         Console.WriteLine("Page-like text, white margins and moving scrollbar: OK");
     }
     private static string GuidFromRandom(Random random) => new string(Enumerable.Range(0, random.Next(3, 9)).Select(_ => (char)('a' + random.Next(26))).ToArray());
-    private static void Pump(int milliseconds)
+    internal static void Pump(int milliseconds)
     {
         var frame = new DispatcherFrame();
         var timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(milliseconds) };

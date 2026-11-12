@@ -1,4 +1,4 @@
-# Limitaciones de la beta 0.4.0
+# Limitaciones de la beta 0.5.0
 
 El destino es Windows 11 x64. Windows 10 22H2 x64 no está validado: el instalador permite técnicamente el build 19045 o posterior, pero ese umbral no certifica compatibilidad ni pruebas. No se ofrece soporte para x86, ARM64 nativo ni emulación ARM64 en este paquete.
 
@@ -6,7 +6,7 @@ La captura de ventanas protegidas, contenido DRM, escritorio seguro/UAC, sesione
 
 La captura larga une tramos de scroll manual y depende de su solapamiento. Cabeceras fijas, animaciones, contenido repetitivo, cambios de anchura o desplazamientos grandes pueden dificultar la unión. Se rechazan uniones ambiguas y se limita la salida a 60 millones de píxeles y 65.535 filas para controlar el consumo de memoria. El historial de edición también consume memoria; no se promete recuperación perfecta.
 
-El runtime incluido evita instalar .NET, pero sus correcciones de seguridad requieren una nueva distribución de Clipsa. La comprobación de actualizaciones es gestionada por la aplicación mediante un feed HTTPS configurable; la descarga y la instalación son manuales. No hay URL pública configurada ni publicación desde los scripts.
+El runtime incluido evita instalar .NET, pero sus correcciones de seguridad requieren una nueva distribución de Clipsa. Desde 0.5.0 hay canal beta, descarga verificada y actualización con confirmación para instalada y portable. No se garantiza que un antivirus permita la operación ni que una carpeta de sólo lectura pueda actualizarse. Las versiones 0.4.x necesitan la primera actualización manual. [Procedimiento y seguridad](ACTUALIZACIONES.md).
 
 La firma no está disponible sin certificado y clave accesibles. Un SHA256 permite detectar cambios respecto al hash recibido, pero por sí solo no identifica al editor. Windows puede mostrar advertencias para una beta sin firma; no se garantiza reputación de SmartScreen incluso con un certificado.
 

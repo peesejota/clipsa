@@ -9,7 +9,7 @@ internal static class UpdateChecks
     {
         foreach (var suffix in new[] { "", "/", "/releases", "/releases/latest" })
             Require(UpdateService.ResolveFeed("https://github.com/peesejota/clipsa" + suffix).AbsoluteUri ==
-                "https://github.com/peesejota/clipsa/releases/latest/download/update-manifest.json", "GitHub repository resolution");
+                UpdateService.DefaultFeed, "GitHub repository resolution");
         Require(UpdateService.ResolveFeed("https://example.test/feed.json?channel=stable").AbsoluteUri == "https://example.test/feed.json?channel=stable", "custom HTTPS feed preserved");
         foreach (var invalid in new[] { "http://example.test/feed.json", "https://user:secret@example.test/feed.json", "file:///C:/feed.json", "not a URL" })
         {
@@ -26,6 +26,7 @@ internal static class UpdateChecks
             catch (System.IO.InvalidDataException) { }
         }
         Console.WriteLine("GitHub URL resolution, HTTPS feeds, credential rejection and safe redirects: OK (no network or UI).");
+        UpdaterChecks.Run();
     }
     private static Task<HttpResponseMessage> Request(HttpClient client) =>
         (Task<HttpResponseMessage>)typeof(UpdateService).GetMethod("GetHttpsAsync", BindingFlags.NonPublic | BindingFlags.Static)!

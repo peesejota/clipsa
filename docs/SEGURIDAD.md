@@ -1,5 +1,7 @@
 # Revisión de la alerta de Kaspersky
 
+Estado 12/11/2026: por petición expresa del usuario se prepara 0.5.0 con actualización verificada y publicación beta. No se han restaurado los scripts bloqueados ni desactivado protección. Los manifiestos se firman con una clave RSA privada en Windows CNG y la app incorpora sólo la pública; esto NO es un certificado Authenticode ni resuelve el evento histórico. Las notas siguientes documentan la revisión de octubre, no un bloqueo actual de toda publicación. Para el flujo vigente, ver [ACTUALIZACIONES.md](ACTUALIZACIONES.md).
+
 Actualización del 14/10/2026: el usuario ha solicitado reconstruir instalador y portable con los atajos Impr Pant. Se usan directamente los compiladores .NET e Inno Setup existentes, sin restaurar los scripts bloqueados, modificar el antivirus ni ejecutar pruebas automáticas de instalación o del registro. La alerta histórica continúa pendiente; un nuevo análisis de archivos no certifica el comportamiento. Los logs e informes de pruebas con rutas personales no se incluyen en los paquetes nuevos.
 
 Fecha: 12 de octubre de 2026. Esta revisión no certifica ausencia de malware ni declara resuelta la alerta de comportamiento.

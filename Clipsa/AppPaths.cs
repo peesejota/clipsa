@@ -30,13 +30,25 @@ public static class AppPaths
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            StorageNotice = "La carpeta portable no permite guardar ajustes. Se utilizará AppData; mueve Clipsa a una carpeta con permiso de escritura para llevarte sus ajustes.";
-            Directory.CreateDirectory(normal); return normal;
+            throw new IOException("La carpeta portable no permite escribir. Mueve toda la carpeta de Clipsa a una ubicación con permisos de escritura. No se utilizarán los ajustes de otra instalación.", ex);
         }
     }
 
     public static string DefaultSaveFolder => IsPortable ? BaseDirectory :
         Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.MyPictures), "Clipsa");
+    public static string ResolveSaveFolder(string path) => Path.GetFullPath(Path.IsPathFullyQualified(path) ? path : Path.Combine(BaseDirectory, path));
+    public static string StoreSaveFolder(string path)
+    {
+        var absolute = Path.GetFullPath(path);
+        if (!IsPortable) return absolute;
+        return MakePortableSavePath(BaseDirectory, absolute);
+    }
+    public static string MakePortableSavePath(string baseDirectory, string path)
+    {
+        var absolute = Path.GetFullPath(path);
+        var relative = Path.GetRelativePath(baseDirectory, absolute);
+        return relative != ".." && !relative.StartsWith(".." + Path.DirectorySeparatorChar) && !Path.IsPathFullyQualified(relative) ? relative : absolute;
+    }
 
     public static void InitializeSession()
     {

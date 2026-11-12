@@ -1,25 +1,44 @@
-# Clipsa 0.4.3 · beta para Windows
+# Clipsa 0.5.0 · beta para Windows
 
-Repositorio oficial: [peesejota/clipsa](https://github.com/peesejota/clipsa). Las compilaciones de GitHub Actions generan instalador y portable; las Releases se preparan como borradores y requieren revisión antes de publicarse. [Cómo compilar y publicar](docs/GITHUB.md). La autoactualización todavía no está implementada.
+Capturas, edición y scroll manual en una barra flotante de cristal. Autor: **Francisco Serrano Jiménez**.
 
-Autor de Clipsa para Windows: **Francisco Serrano Jiménez**. Consulta la [preparación de GitHub y avisos de actualización](docs/GITHUB.md). Incluye autoría corregida, avisos opcionales de actualización, atajos Impr Pant y scroll continuo con inicio guardado antes del desplazamiento.
+[Descargas y versiones](https://github.com/peesejota/clipsa/releases) · [Uso](docs/USO.md) · [Actualizaciones](docs/ACTUALIZACIONES.md) · [Privacidad](docs/PRIVACIDAD.md)
 
-Aviso: hay una alerta de Kaspersky sobre el proceso de empaquetado pendiente de aclarar. El análisis posterior de los archivos finales no ha detectado amenazas, pero no resuelve la alerta de comportamiento. No restaurar ni ejecutar los scripts bloqueados. Consulta [la revisión de seguridad](docs/SEGURIDAD.md) antes de distribuir esta beta.
+## Instalada o portable
 
-Clipsa es una reescritura para Windows con WPF, inspirada en [Tendedero de Alejandro Buján](https://github.com/alejandrobujan/tendedero). Permite capturar, ordenar y editar imágenes desde un panel y la bandeja del sistema. El crédito al trabajo original se conserva en [los avisos de terceros](THIRD-PARTY-NOTICES.md).
+Destino probado: Windows 11 x64. Ambos paquetes incluyen .NET/WPF 10.0.15; no necesitas instalar .NET por separado.
 
-El destino de esta versión es Windows 11 x64. Windows 10 22H2 x64 está pendiente de validación; no se afirma que esté probado. No se distribuyen versiones x86 ni ARM64. Ambos paquetes incluyen el runtime de .NET 10 y WPF; no hay que instalar .NET por separado.
+- **Instalador:** `Clipsa-0.5.0-win-x64-setup.exe`. Instalación por usuario sin administrador; ajustes en `%APPDATA%\Clipsa`.
+- **Portable:** extrae todo `Clipsa-0.5.0-win-x64-portable.zip` y abre `Clipsa.exe`. Conserva `portable.mode`. Los ajustes, sesiones y actualizaciones están en `data` dentro de la carpeta portable. No basta con copiar el EXE.
 
-Para usar la versión portable, extrae **todo** `Clipsa-0.4.3-win-x64-portable.zip` en una carpeta donde puedas escribir y abre `Clipsa.exe`. Conserva `portable.mode` junto al ejecutable: los datos se guardan en `data/` junto a él. No es suficiente copiar solo el EXE.
+Guarda las capturas pendientes y elige **Salir** desde la bandeja antes de sustituir una versión antigua. Las versiones 0.4.x necesitan esta primera instalación manual para recibir el nuevo sistema de actualizaciones.
 
-Para instalar o actualizar, ejecuta `Clipsa-0.4.3-win-x64-setup.exe` con tu usuario habitual. Se instala en `%LOCALAPPDATA%\Programs\Clipsa`, sin solicitar permisos de administrador. Los ajustes y datos se guardan en `%APPDATA%\Clipsa`. Las actualizaciones y la desinstalación conservan esos datos. Cierra Clipsa con **Salir** desde la bandeja antes de instalar, actualizar o desinstalar; la X puede ocultar el panel.
+## Funciones
 
-Los atajos iniciales son `Ctrl+Alt+T` para pantalla completa, `Ctrl+Alt+R` para región y `Ctrl+Alt+S` para scroll manual. Puedes cambiarlos en Ajustes. Para scroll, espera «Inicio guardado», desplázate continuamente dejando solapamiento y pulsa Terminar. No hace falta parar en cada tramo. Un salto directo del principio al final no permite reconstruir el contenido intermedio; cabeceras fijas y animaciones pueden dificultar la unión.
+- Captura de pantalla o región; atajos configurables, incluidos Impr Pant y sus combinaciones con 1/2/3.
+- Barra centrada, fondo transparente, modo compacto, reordenación y arrastre a carpetas u otras aplicaciones.
+- Edición con lápiz, resaltador, goma, texto, formas, recorte libre/proporcional, rotación y deshacer/rehacer.
+- Scroll con rueda, trackpad o barra lateral, miniatura del recorrido y opción de guardar los tramos aceptados si no se puede completar.
+- Bandeja, inicio con Windows opcional y recuperación local de sesiones interrumpidas.
 
-Puedes usar rueda, trackpad o barra lateral mientras ves la página. No hay aviso modal previo: seleccionas el área y la miniatura muestra lo acumulado. Sigue siendo captura de pantalla, no lectura del documento interno del navegador; los saltos que omiten zonas visibles no pueden reconstruirse. 0.4.3 mejora el reconocimiento de texto y márgenes blancos y se ha probado con una página local real de Edge, sin usar perfiles del usuario.
+El scroll captura lo que aparece en pantalla, no el documento interno del navegador: no puede reconstruir zonas que un salto brusco ha omitido. Contenido animado o repetido puede impedir una unión fiable. [Limitaciones](docs/LIMITACIONES.md).
 
-En Ajustes, el botón **Usar Impr Pant + 1 / 2 / 3** asigna completa, región y scroll, respectivamente. Guarda los ajustes; mantén Impr Pant, pulsa el número y suelta Impr Pant para capturar. También se puede elegir Impr Pant sola pulsando el atajo y soltando esa tecla. No se cambia la configuración de Recortes de Windows; Clipsa sólo intercepta los gestos asignados mientras está abierta. Algunos portátiles requieren Fn para emitir Impr Pant. Si el teclado sólo emite la pulsación al soltar, Impr Pant sola funciona, pero las combinaciones mantenidas dependen del hardware.
+## Actualizaciones desde GitHub
 
-La recuperación tras un cierre inesperado es opcional y comienza desactivada (`RecoverAfterCrash=false`). Las capturas, los ajustes y los informes de errores son locales. La consulta de actualizaciones usa un feed HTTPS configurable, vacío por defecto; abre el navegador para una actualización manual, sin instalarla automáticamente.
+El canal beta oficial se consulta al iniciar y cada seis horas; puede desactivarse en Ajustes. Cuando hay una versión posterior aparece un aviso y un botón persistente. Puedes **Descargar** sin instalar o elegir **Actualizar ahora**. Antes de cerrar se ofrece guardar las capturas temporales.
 
-Consulta [uso](docs/USO.md), [privacidad](docs/PRIVACIDAD.md), [limitaciones](docs/LIMITACIONES.md), [compilación y distribución](docs/DISTRIBUCION.md) y [resultados de validación](docs/VALIDACION.md). El instalador y la portable se han construido y probado localmente, incluida instalación sin administrador, reinstalación y desinstalación. Siguen pendientes la firma con certificado propio, el destino público de actualizaciones y la comprobación en otro equipo limpio.
+La app comprueba una firma RSA-PSS del manifiesto con una clave pública incorporada, selecciona instalador o portable según su modo y verifica el SHA256 del paquete. La portable actualiza los archivos del programa conservando `data` y las capturas exportadas, con copia de respaldo y restauración si falla la sustitución. No ejecuta actualizaciones de fuentes sin firma de confianza.
+
+La firma del manifiesto **no equivale a un certificado Authenticode de editor de Windows**. Esta beta no tiene ese certificado; Windows o el antivirus pueden mostrar advertencias. No desactives protección ni añadas exclusiones. La alerta histórica de Kaspersky sigue documentada en [SEGURIDAD.md](docs/SEGURIDAD.md).
+
+## Desarrollo y publicación
+
+SDK .NET **10.0.404**, fijado en `global.json`. GitHub Actions compila y empaqueta; las publicaciones se firman con la herramienta local de [release-tools](release-tools/Clipsa.ReleaseTools.csproj). La clave privada no está en este repositorio ni en los binarios. [Procedimiento de publicación](docs/ACTUALIZACIONES.md).
+
+```powershell
+dotnet run --project verification/Clipsa.Checks.csproj --configuration Release -- --updates-only
+```
+
+Las pruebas gráficas necesitan escritorio interactivo; el resultado de CI no sustituye las pruebas en otro PC limpio. [Resultados y alcance](docs/VALIDACION.md).
+
+Clipsa para Windows es una reescritura WPF inspirada en [Tendedero de Alejandro Buján](https://github.com/alejandrobujan/tendedero). Se conserva su aviso original en `licenses/`, sin atribuirle esta aplicación Windows ni usar su nombre o icono. [Licencia](LICENSE) · [Avisos de terceros](THIRD-PARTY-NOTICES.md).

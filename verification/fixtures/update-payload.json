@@ -1,0 +1,8 @@
+{
+  "version": "0.0.0",
+  "downloadUrl": "https://updates.example.invalid/installer.exe",
+  "sha256": "0000000000000000000000000000000000000000000000000000000000000000",
+  "portableDownloadUrl": "https://updates.example.invalid/portable.zip",
+  "portableSha256": "1111111111111111111111111111111111111111111111111111111111111111",
+  "releaseNotesUrl": "https://updates.example.invalid/notes"
+}

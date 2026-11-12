@@ -14,6 +14,9 @@ public partial class App : System.Windows.Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
+        if (e.Args.Length == 2 && e.Args[0] == "--apply-update") { Shutdown(UpdateInstaller.RunWorker(e.Args[1])); return; }
+        try { _ = AppPaths.DataDirectory; }
+        catch (Exception ex) { System.Windows.MessageBox.Show(ex.Message, "Clipsa", MessageBoxButton.OK, MessageBoxImage.Error); Shutdown(1); return; }
         if (e.Args.Contains("--self-test"))
         {
             var index = Array.IndexOf(e.Args, "--report");

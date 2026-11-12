@@ -1,4 +1,12 @@
-# Validación de Clipsa 0.4.0
+# Validación de Clipsa
+
+## Revisión 0.5.0 · 12 de noviembre de 2026
+
+SDK 10.0.404 y runtime objetivo .NET/WPF 10.0.15. Pruebas superadas: firma RSA-PSS con clave pública fijada, selección instalada/portable, rechazo de manifiestos alterados, SHA256 incorrecto y rutas de ZIP peligrosas, conservación de datos/exportaciones, restauración de archivos al fallar una actualización portable, pertenencia del inicio automático y rutas relativas portables. El material firmado de prueba usa versión 0.0.0 y dominio reservado `.invalid`; no es una actualización ejecutable.
+
+También pasaron las pruebas completas existentes de ajustes atómicos y recuperación, transparencia independiente, texto/trazos/goma/recorte/rotación y deshacer/rehacer, selección de recorte con ratón real y Ctrl+Z/Ctrl+Y, arrastre de miniaturas a receptor externo, icono en color y scroll manual. Se corrigieron la sincronización de pintado/DPI y la espera asíncrona del arnés antiguo de scroll. Las pruebas específicas de texto, fondo blanco, desplazamiento continuo y recuperación de tramos siguen pasando.
+
+Los informes históricos siguientes no se presentan como pruebas nuevas de esta versión. Siguen pendientes un PC limpio y varios monitores físicos/DPI mixto; las limitaciones externas de certificado Authenticode y revisión de Kaspersky no desaparecen por firmar los manifiestos.
 
 ## Revisión 0.4.3 · 14 de octubre de 2026
 

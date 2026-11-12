@@ -52,10 +52,12 @@ internal sealed class ScrollCaptureWindow : Window
         root.Children.Add(status);
         root.Children.Add(preview);
         var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
-        var finish = new Button { Content = "Terminar y guardar en Clipsa", Padding = new Thickness(12, 5, 12, 5), Margin = new Thickness(4) };
+        var finish = new Button { Content = "Terminar y guardar", Padding = new Thickness(12, 5, 12, 5), Margin = new Thickness(4) };
+        var partial = new Button { Content = "Guardar lo capturado", IsEnabled = false, Padding = new Thickness(8, 5, 8, 5), Margin = new Thickness(4), ToolTip = "Guardar sólo los tramos aceptados, aunque el último desplazamiento no se haya podido unir." };
         var cancel = new Button { Content = "Cancelar", Padding = new Thickness(12, 5, 12, 5), Margin = new Thickness(4) };
         finish.Click += (_, _) => Finish(); cancel.Click += (_, _) => Cancel();
-        buttons.Children.Add(cancel); buttons.Children.Add(finish); root.Children.Add(buttons); Content = root;
+        partial.Click += (_, _) => { if (System.Windows.MessageBox.Show(this, "¿Guardar únicamente los tramos aceptados? La parte final que no se haya unido puede faltar.", "Clipsa", MessageBoxButton.YesNo) == MessageBoxResult.Yes) FinishCore(false); };
+        buttons.Children.Add(cancel); buttons.Children.Add(partial); buttons.Children.Add(finish); root.Children.Add(buttons); Content = root;
         // The old three-stable-sample gate skipped the entire gesture during continuous scroll.
         timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(Math.Clamp(delay / 3, 40, 100)) };
         timer.Tick += (_, _) => Tick();
@@ -94,6 +96,7 @@ internal sealed class ScrollCaptureWindow : Window
                 // Establish the baseline immediately, BEFORE inviting the user to scroll.
                 using var initial = Capture();
                 InitializeFirstFrame(initial, ScrollStitcher.Pixels(initial));
+                partial.IsEnabled = true;
                 status.Text = $"Inicio guardado · {region.Width} × {region.Height} px. Desplaza arriba o abajo, dejando solapamiento. Pulsa Terminar cuando acabes.";
                 timer.Start();
             }
@@ -246,7 +249,8 @@ internal sealed class ScrollCaptureWindow : Window
         var image = new System.Windows.Media.Imaging.BitmapImage(); image.BeginInit(); image.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad; image.StreamSource = stream; image.EndInit(); image.Freeze(); preview.Source = image;
     }
 
-    private async void Finish()
+    private void Finish() => FinishCore(true);
+    private async void FinishCore(bool includeFinal)
     {
         if (finished || finishing) return;
         finishing = true; timer.Stop();
@@ -254,7 +258,7 @@ internal sealed class ScrollCaptureWindow : Window
         {
             while (processing) await Task.Delay(20, cancellation.Token);
             cancellation.Token.ThrowIfCancellationRequested();
-            if (!sizeLimitReached)
+            if (!sizeLimitReached && includeFinal)
             {
                 if (!TargetUnmoved()) { timer.Start(); return; }
                 using var final = Capture();

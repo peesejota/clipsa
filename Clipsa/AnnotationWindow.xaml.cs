@@ -30,10 +30,13 @@ public partial class AnnotationWindow : Window
     private readonly Stack<EditorState> redoHistory = new();
     private EditorState? pendingState;
     private bool restoring;
+    private readonly bool promptOnDiscard;
+    private bool allowDiscard;
+    private EditorState? initialState;
 
-    public AnnotationWindow(string path)
+    public AnnotationWindow(string path, bool promptOnDiscard = true)
     {
-        InitializeComponent(); filePath = path;
+        InitializeComponent(); filePath = path; this.promptOnDiscard = promptOnDiscard;
         using var stream = new MemoryStream(File.ReadAllBytes(path));
         var image = new BitmapImage(); image.BeginInit(); image.CacheOption = BitmapCacheOption.OnLoad; image.StreamSource = stream; image.EndInit(); image.Freeze();
         SetImage(image);
@@ -43,6 +46,16 @@ public partial class AnnotationWindow : Window
         InputBindings.Add(new KeyBinding(ApplicationCommands.Redo, Key.Y, ModifierKeys.Control));
         InputBindings.Add(new KeyBinding(ApplicationCommands.Redo, Key.Z, ModifierKeys.Control | ModifierKeys.Shift));
         UpdateHistoryButtons();
+        initialState = CaptureState();
+        Closing += (_, e) =>
+        {
+            if (!this.promptOnDiscard || allowDiscard || DialogResult == true || initialState is null) return;
+            FinishGesture(); var now = CaptureState();
+            if (ReferenceEquals(now.Image, initialState.Image) && now.Crop == initialState.Crop && now.Annotations.SequenceEqual(initialState.Annotations)) return;
+            var answer = System.Windows.MessageBox.Show(this, "Hay cambios sin guardar. ¿Guardarlos antes de cerrar?", "Clipsa", MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
+            if (answer == MessageBoxResult.Cancel) e.Cancel = true;
+            else if (answer == MessageBoxResult.Yes) { e.Cancel = true; Dispatcher.BeginInvoke(() => Save_Click(this, new RoutedEventArgs())); }
+        };
     }
 
     private void SetImage(BitmapSource image)
@@ -222,6 +235,20 @@ public partial class AnnotationWindow : Window
         var radius = Math.Max(4, Thickness.Value);
         for (var i = Ink.Children.Count - 1; i >= 0; i--)
         {
+            if (Ink.Children[i] is TextBlock label)
+            {
+                var text = new FormattedText(label.Text, System.Globalization.CultureInfo.CurrentCulture, label.FlowDirection,
+                    new Typeface(label.FontFamily, label.FontStyle, label.FontWeight, label.FontStretch), label.FontSize, label.Foreground, VisualTreeHelper.GetDpi(label).PixelsPerDip)
+                    { MaxTextWidth = Math.Max(1, label.MaxWidth) };
+                var geometry = text.BuildGeometry(new Point());
+                var lx = WpfCanvas.GetLeft(label); var ly = WpfCanvas.GetTop(label);
+                var cut = new EllipseGeometry(new Point(point.X - lx, point.Y - ly), radius, radius);
+                if (geometry.FillContainsWithDetail(cut) == IntersectionDetail.Empty) continue;
+                var remainingText = Geometry.Combine(geometry, cut, GeometryCombineMode.Exclude, null);
+                var replacementText = new PathShape { Data = remainingText, Fill = label.Foreground, Stretch = Stretch.None };
+                WpfCanvas.SetLeft(replacementText, lx); WpfCanvas.SetTop(replacementText, ly);
+                Ink.Children.RemoveAt(i); if (!remainingText.Bounds.IsEmpty) Ink.Children.Insert(i, replacementText); continue;
+            }
             if (Ink.Children[i] is not Shape shape) continue;
             var x = WpfCanvas.GetLeft(shape); var y = WpfCanvas.GetTop(shape);
             if (double.IsNaN(x)) x = 0; if (double.IsNaN(y)) y = 0;
@@ -267,7 +294,7 @@ public partial class AnnotationWindow : Window
         FinishGesture(); var before = CaptureState();
         Ink.Children.Clear(); crop = Rect.Empty; CropSelection.Visibility = Visibility.Collapsed; UpdateDimensions(); CommitState(before);
     }
-    private void Cancel_Click(object s, RoutedEventArgs e) { DialogResult = false; }
+    private void Cancel_Click(object s, RoutedEventArgs e) { allowDiscard = true; DialogResult = false; }
     private void Save_Click(object s, RoutedEventArgs e)
     {
         FinishGesture();

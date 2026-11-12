@@ -12,6 +12,11 @@ public partial class SettingsWindow : Window
     private readonly AppSettings original;
     private HotkeySetting? recording;
     private PrintScreenShortcuts? printRecorder;
+    private readonly CancellationTokenSource updateCancellation = new();
+    private ReleaseInfo? latestRelease;
+    private string? downloadedPackage;
+    private bool downloading;
+    public (ReleaseInfo Release, string Package)? ReadyUpdate { get; private set; }
     private sealed record MonitorChoice(string Device, string Label);
     public SettingsWindow(AppSettings value)
     {
@@ -20,14 +25,14 @@ public partial class SettingsWindow : Window
         MonitorBox.Items.Add(new MonitorChoice("", "Automático · pantalla donde está el ratón"));
         foreach (var screen in Forms.Screen.AllScreens) MonitorBox.Items.Add(new MonitorChoice(screen.DeviceName, screen.DeviceName + (screen.Primary ? " · principal" : "") + " · " + screen.Bounds.Width + " × " + screen.Bounds.Height));
         Refresh();
-        Closed += (_, _) => CancelRecording();
+        Closed += (_, _) => { updateCancellation.Cancel(); CancelRecording(); };
     }
 
     private void Refresh()
     {
         FullButton.Content = settings.Full.Display; RegionButton.Content = settings.Region.Display; ScrollButton.Content = settings.Scroll.Display;
         DelayBox.Text = settings.ScrollDelay.ToString(); ScaleBox.Text = Math.Round(settings.PanelScale * 100).ToString(); GlassSlider.Value = settings.GlassOpacity;
-        FolderBox.Text = settings.SaveFolder; KeepTrayBox.IsChecked = settings.KeepInTray; StartupBox.IsChecked = settings.StartWithWindows; RecoveryBox.IsChecked = settings.RecoverAfterCrash;
+        FolderBox.Text = AppPaths.ResolveSaveFolder(settings.SaveFolder); KeepTrayBox.IsChecked = settings.KeepInTray; StartupBox.IsChecked = settings.StartWithWindows; RecoveryBox.IsChecked = settings.RecoverAfterCrash;
         MonitorBox.SelectedValue = settings.CaptureMonitor; if (MonitorBox.SelectedIndex < 0) MonitorBox.SelectedIndex = 0;
         UpdateFeedBox.Text = settings.UpdateFeedUrl;
         StartupUpdatesBox.IsChecked = settings.CheckUpdatesOnStartup;
@@ -107,13 +112,14 @@ public partial class SettingsWindow : Window
         { System.Windows.MessageBox.Show(this, "Introduce el repositorio o manifiesto antes de activar los avisos.", "Clipsa"); return; }
         try
         {
-            settings.SaveFolder = Path.GetFullPath(FolderBox.Text);
-            Directory.CreateDirectory(settings.SaveFolder);
-            using (new FileStream(Path.Combine(settings.SaveFolder, Guid.NewGuid() + ".probe"), FileMode.CreateNew, FileAccess.Write, FileShare.None, 1, FileOptions.DeleteOnClose)) { }
+            var selectedFolder = AppPaths.ResolveSaveFolder(FolderBox.Text);
+            Directory.CreateDirectory(selectedFolder);
+            using (new FileStream(Path.Combine(selectedFolder, Guid.NewGuid() + ".probe"), FileMode.CreateNew, FileAccess.Write, FileShare.None, 1, FileOptions.DeleteOnClose)) { }
+            settings.SaveFolder = AppPaths.StoreSaveFolder(selectedFolder);
             settings.KeepInTray = KeepTrayBox.IsChecked == true; settings.StartWithWindows = StartupBox.IsChecked == true; settings.RecoverAfterCrash = RecoveryBox.IsChecked == true;
             settings.CaptureMonitor = (MonitorBox.SelectedItem as MonitorChoice)?.Device ?? "";
             var oldStartup = StartupManager.GetCurrent();
-            try { StartupManager.Apply(settings.StartWithWindows); SettingsStore.Save(settings); }
+            try { if (settings.StartWithWindows != original.StartWithWindows) StartupManager.Apply(settings.StartWithWindows); SettingsStore.Save(settings); }
             catch { StartupManager.Restore(oldStartup); throw; }
             original.Full = settings.Full; original.Region = settings.Region; original.Scroll = settings.Scroll;
             original.ScrollDelay = settings.ScrollDelay; original.PanelScale = settings.PanelScale; original.GlassOpacity = settings.GlassOpacity;
@@ -133,12 +139,44 @@ public partial class SettingsWindow : Window
         UpdatesButton.IsEnabled = false;
         try
         {
-            var release = await UpdateService.CheckAsync(url);
-            if (release is null) { System.Windows.MessageBox.Show(this, "Tienes la versión más reciente disponible en este canal.", "Clipsa"); return; }
-            if (System.Windows.MessageBox.Show(this, "Disponible Clipsa " + release.Version + ". ¿Abrir la página de descarga? Guarda tus capturas pendientes antes de instalar.", "Clipsa", MessageBoxButton.YesNo) == MessageBoxResult.Yes)
-                System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(release.DownloadUrl) { UseShellExecute = true });
+            var release = await UpdateService.CheckAsync(url, updateCancellation.Token);
+            latestRelease = release; downloadedPackage = null; OpenDownloadButton.Visibility = Visibility.Collapsed;
+            DownloadUpdateButton.IsEnabled = release is not null; InstallUpdateButton.IsEnabled = release?.SignatureVerified == true;
+            if (release is null) { UpdateStatusText.Text = "Tienes la versión más reciente de este canal."; return; }
+            UpdateStatusText.Text = "Disponible Clipsa " + release.Version + (release.SignatureVerified ? " · Firma verificada · " + (AppPaths.IsPortable ? "ZIP portable" : "Instalador") : " · Fuente sin firma: sólo descarga manual en navegador.");
         }
-        catch (Exception ex) { AppDiagnostics.Log(ex, "Consultar actualizaciones"); System.Windows.MessageBox.Show(this, "No se pudo comprobar la actualización: " + ex.Message, "Clipsa"); }
+        catch (OperationCanceledException) { }
+        catch (Exception ex) { AppDiagnostics.Log(ex, "Consultar actualizaciones"); UpdateStatusText.Text = "No se pudo comprobar: " + ex.Message; }
         finally { UpdatesButton.IsEnabled = true; }
+    }
+    private async Task<bool> DownloadLatestAsync()
+    {
+        if (latestRelease is null || downloading) return false;
+        if (!latestRelease.SignatureVerified)
+        {
+            System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(latestRelease.DownloadUrl) { UseShellExecute = true }); return false;
+        }
+        if (downloadedPackage is not null && File.Exists(downloadedPackage)) return true;
+        downloading = true; DownloadUpdateButton.IsEnabled = InstallUpdateButton.IsEnabled = UpdatesButton.IsEnabled = false; UpdateProgress.Visibility = Visibility.Visible;
+        try
+        {
+            var progress = new Progress<double>(value => { UpdateProgress.Value = value * 100; UpdateStatusText.Text = $"Descargando y verificando… {value:P0}"; });
+            downloadedPackage = await UpdateService.DownloadAsync(latestRelease, progress, updateCancellation.Token);
+            UpdateStatusText.Text = "Descarga completa. Firma y SHA256 comprobados. Puedes abrir la carpeta o actualizar ahora.";
+            OpenDownloadButton.Visibility = Visibility.Visible; return true;
+        }
+        catch (OperationCanceledException) { return false; }
+        catch (Exception ex) { AppDiagnostics.Log(ex, "Descargar actualización"); UpdateStatusText.Text = "No se descargó: " + ex.Message; return false; }
+        finally { downloading = false; DownloadUpdateButton.IsEnabled = InstallUpdateButton.IsEnabled = UpdatesButton.IsEnabled = true; }
+    }
+    private async void DownloadUpdate_Click(object sender, RoutedEventArgs e) => await DownloadLatestAsync();
+    private async void InstallUpdate_Click(object sender, RoutedEventArgs e)
+    {
+        if (await DownloadLatestAsync() && latestRelease is not null && downloadedPackage is not null)
+        { ReadyUpdate = (latestRelease, downloadedPackage); DialogResult = false; }
+    }
+    private void OpenDownload_Click(object sender, RoutedEventArgs e)
+    {
+        if (downloadedPackage is not null) System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(Path.GetDirectoryName(downloadedPackage)!) { UseShellExecute = true });
     }
 }

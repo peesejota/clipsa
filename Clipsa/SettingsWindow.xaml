@@ -16,8 +16,15 @@
         <TextBlock Text="Actualizaciones y datos" FontSize="16" FontWeight="SemiBold"/>
         <TextBox x:Name="UpdateFeedBox" Margin="0,10" ToolTip="Repositorio público de GitHub o URL HTTPS del manifiesto de actualizaciones"/>
         <TextBlock Text="Repositorio GitHub o manifiesto HTTPS (por ejemplo, https://github.com/peesejota/clipsa)." Foreground="#AEB5C7" FontSize="11" TextWrapping="Wrap" Margin="0,0,0,8"/>
-        <CheckBox x:Name="StartupUpdatesBox" Content="Avisar de nuevas versiones al iniciar Clipsa" Foreground="#F7F8FC" Margin="0,0,0,10"/>
+        <CheckBox x:Name="StartupUpdatesBox" Content="Buscar actualizaciones al iniciar y cada 6 horas" Foreground="#F7F8FC" Margin="0,0,0,10"/>
         <Button x:Name="UpdatesButton" Content="Buscar actualizaciones" Click="Updates_Click" HorizontalAlignment="Left" Padding="10,5"/>
+        <TextBlock x:Name="UpdateStatusText" Text="Canal beta oficial. Las actualizaciones sólo se aplican con tu confirmación." Foreground="#AEB5C7" TextWrapping="Wrap" Margin="0,10"/>
+        <ProgressBar x:Name="UpdateProgress" Height="6" Minimum="0" Maximum="100" Visibility="Collapsed"/>
+        <StackPanel Orientation="Horizontal" Margin="0,10,0,0">
+            <Button x:Name="DownloadUpdateButton" Content="Descargar" Click="DownloadUpdate_Click" IsEnabled="False" Padding="10,5" Margin="0,0,8,0"/>
+            <Button x:Name="InstallUpdateButton" Content="Actualizar ahora" Click="InstallUpdate_Click" IsEnabled="False" Padding="10,5"/>
+        </StackPanel>
+        <Button x:Name="OpenDownloadButton" Content="Abrir carpeta de descarga" Click="OpenDownload_Click" Visibility="Collapsed" HorizontalAlignment="Left" Margin="0,8,0,0" Padding="10,5"/>
         <TextBlock x:Name="StorageText" Foreground="#AEB5C7" FontSize="11" TextWrapping="Wrap" Margin="0,12,0,6"/>
         <Button Content="Abrir ajustes e informes" Click="Storage_Click" HorizontalAlignment="Left" Padding="10,5"/>
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,22,0,0"><Button Content="Cancelar" Click="Cancel_Click" Padding="18,7" Margin="0,0,8,0"/><Button Content="Guardar" Click="Save_Click" Padding="18,7" Background="#9B8CFF"/></StackPanel>

@@ -18,6 +18,8 @@ internal static class StartupManager
             var path = Environment.ProcessPath;
             if (!string.IsNullOrWhiteSpace(path)) key.SetValue(ValueName, $"\"{path}\" --background");
         }
-        else key.DeleteValue(ValueName, throwOnMissingValue: false);
+        else if (OwnsCommand(key.GetValue(ValueName) as string, Environment.ProcessPath)) key.DeleteValue(ValueName, throwOnMissingValue: false);
     }
+    public static bool OwnsCommand(string? command, string? executable) => !string.IsNullOrWhiteSpace(executable) &&
+        new[] { $"\"{executable}\" --background", $"\"{executable}\"", executable }.Contains(command?.Trim(), StringComparer.OrdinalIgnoreCase);
 }

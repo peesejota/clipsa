@@ -15,6 +15,10 @@ public partial class MainWindow : Window
 {
     private readonly CancellationTokenSource updateCancellation = new();
     private ReleaseInfo? pendingUpdate;
+    private readonly DispatcherTimer updateTimer = new() { Interval = TimeSpan.FromHours(6) };
+    private bool checkingUpdate;
+    private bool settingsOpen, applyingUpdate;
+    private bool windowInitialized;
     private PrintScreenShortcuts? printShortcuts;
     private const int HotkeyFull = 9001, HotkeyRegion = 9002, HotkeyScroll = 9003;
     private readonly CaptureStore store = new(); private readonly AppSettings settings = SettingsStore.Load(); private Forms.NotifyIcon? tray; private System.Drawing.Icon? trayIcon; private HwndSource? source; private System.Windows.Point dragStart; private bool collapsed; private bool exitRequested; private FrameworkElement? hoveredCard; private InsertionAdorner? insertion; private FrameworkElement? dragCard; private bool suppressCompactClick; private bool dragInProgress; private bool captureBusy; private string panelMonitor = ""; private readonly List<int> registeredHotkeys = new();
@@ -22,6 +26,7 @@ public partial class MainWindow : Window
     private static IEnumerable<T> FindVisualChildren<T>(DependencyObject root) where T : DependencyObject { if (root is null) yield break; for (var i = 0; i < VisualTreeHelper.GetChildrenCount(root); i++) { var child = VisualTreeHelper.GetChild(root, i); if (child is T typed) yield return typed; foreach (var descendant in FindVisualChildren<T>(child)) yield return descendant; } }
     private void Window_Loaded(object sender, RoutedEventArgs e)
     {
+        if (windowInitialized) return; windowInitialized = true;
         ApplyScale(); PositionPanel(); source = (HwndSource)PresentationSource.FromVisual(this)!; source.AddHook(WndProc); ApplyGlassBrush();
         RegisterHotkeys();
         using var iconStream = System.Windows.Application.GetResourceStream(new Uri("pack://application:,,,/Clipsa;component/Brand/clipsa-icon.ico"))!.Stream; trayIcon = new System.Drawing.Icon(iconStream, 32, 32); tray = new Forms.NotifyIcon { Visible = true, Text = "Clipsa", Icon = trayIcon }; var menu = new Forms.ContextMenuStrip(); menu.Items.Add("Abrir Clipsa", null, (_, _) => { Show(); Activate(); PositionPanel(); }); menu.Items.Add("Ajustes", null, (_, _) => ShowSettings()); menu.Items.Add(new Forms.ToolStripSeparator()); menu.Items.Add("Captura completa", null, (_, _) => CaptureFull()); menu.Items.Add("Captura de región", null, (_, _) => CaptureRegion()); menu.Items.Add("Captura con scroll", null, (_, _) => CaptureScroll()); menu.Items.Add(new Forms.ToolStripSeparator()); menu.Items.Add("Salir", null, (_, _) => ExitApplication()); tray.ContextMenuStrip = menu; tray.DoubleClick += (_, _) => TogglePanel();
@@ -36,25 +41,29 @@ public partial class MainWindow : Window
         if (App.BackgroundLaunch) Dispatcher.BeginInvoke(() => Hide(), DispatcherPriority.ContextIdle);
         tray.BalloonTipClicked += (_, _) =>
         {
-            if (pendingUpdate is { } release)
-                ExecuteAction(() => Process.Start(new ProcessStartInfo(release.DownloadUrl) { UseShellExecute = true }), "Abrir actualización");
+            if (pendingUpdate is not null) ShowSettings();
         };
+        updateTimer.Tick += (_, _) => _ = CheckStartupUpdateAsync(); updateTimer.Start();
         _ = CheckStartupUpdateAsync();
     }
     private async Task CheckStartupUpdateAsync()
     {
-        if (!settings.CheckUpdatesOnStartup || string.IsNullOrWhiteSpace(settings.UpdateFeedUrl)) return;
+        if (checkingUpdate || !settings.CheckUpdatesOnStartup || string.IsNullOrWhiteSpace(settings.UpdateFeedUrl)) return;
+        checkingUpdate = true;
         try
         {
             await Task.Delay(3000, updateCancellation.Token);
             var release = await UpdateService.CheckAsync(settings.UpdateFeedUrl, updateCancellation.Token);
             if (release is null || updateCancellation.IsCancellationRequested) return;
+            var alreadyNotified = pendingUpdate?.Version == release.Version;
             pendingUpdate = release;
-            tray?.ShowBalloonTip(10000, "Disponible Clipsa " + release.Version, "Haz clic para abrir la descarga. Guarda tus capturas antes de actualizar.", Forms.ToolTipIcon.Info);
+            UpdateBadge.Visibility = Visibility.Visible;
+            if (!alreadyNotified) tray?.ShowBalloonTip(10000, "Disponible Clipsa " + release.Version, "Haz clic para descargar o actualizar desde Ajustes.", Forms.ToolTipIcon.Info);
             StatusText.Text = "Disponible Clipsa " + release.Version + " · descarga desde Ajustes";
         }
         catch (OperationCanceledException) { }
         catch (Exception ex) { AppDiagnostics.Log(ex, "Aviso de actualización al iniciar"); }
+        finally { checkingUpdate = false; }
     }
     private void RegisterHotkeys()
     {
@@ -80,6 +89,7 @@ public partial class MainWindow : Window
     {
         if (!App.IsFatal && settings.KeepInTray && !exitRequested) { e.Cancel = true; Hide(); return; }
         updateCancellation.Cancel();
+        updateTimer.Stop();
         UnregisterHotkeys(); tray?.Dispose(); trayIcon?.Dispose(); source?.RemoveHook(WndProc);
         if (!App.IsFatal) CaptureService.Cleanup();
     }
@@ -114,7 +124,7 @@ public partial class MainWindow : Window
     private void CaptureScroll() => RunCapture(() => CaptureService.CaptureScroll(settings.ScrollSteps, settings.ScrollDelay, settings.ScrollOverlap, panelMonitor));
     private void RunCapture(Func<string?> capture)
     {
-        if (captureBusy) return;
+        if (captureBusy || settingsOpen || applyingUpdate || dragInProgress) return;
         captureBusy = true;
         panelMonitor = MonitorService.Resolve(settings.CaptureMonitor).DeviceName;
         var wasVisible = IsVisible;
@@ -128,7 +138,48 @@ public partial class MainWindow : Window
     }
     private void Add(string path) => store.Add(path); private void TogglePanel() { if (IsVisible) Hide(); else { Show(); PositionPanel(); } } private void ClosePanel_Click(object sender, RoutedEventArgs e) => Close(); private void Settings_Click(object sender, RoutedEventArgs e) => ShowSettings();
     private void Collapse_Click(object sender, RoutedEventArgs e) { collapsed = !collapsed; CompactScroll.Visibility = collapsed ? Visibility.Visible : Visibility.Collapsed; BrandTitle.Visibility = collapsed ? Visibility.Collapsed : Visibility.Visible; CardsScroll.Visibility = collapsed ? Visibility.Collapsed : Visibility.Visible; RopeRow.Visibility = collapsed ? Visibility.Collapsed : Visibility.Visible; RootBorder.Padding = collapsed ? new Thickness(24, 5, 24, 5) : new Thickness(24, 12, 24, 20); CollapseButton.Content = collapsed ? "⌄" : "⌃"; PositionPanel(); }
-    private void ShowSettings() { if (captureBusy) return; UnregisterHotkeys(); try { var dialog = new SettingsWindow(settings); if (IsVisible) dialog.Owner = this; else dialog.WindowStartupLocation = WindowStartupLocation.CenterScreen; dialog.ShowDialog(); panelMonitor = MonitorService.Resolve(settings.CaptureMonitor).DeviceName; ApplyScale(); ApplyGlassBrush(); PositionPanel(); } finally { RegisterHotkeys(); } }
+    private void ShowSettings()
+    {
+        if (captureBusy || settingsOpen || applyingUpdate || dragInProgress) return;
+        settingsOpen = true;
+        (ReleaseInfo Release, string Package)? update = null;
+        UnregisterHotkeys();
+        try
+        {
+            var dialog = new SettingsWindow(settings); if (IsVisible) dialog.Owner = this; else dialog.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+            dialog.ShowDialog(); update = dialog.ReadyUpdate;
+            panelMonitor = MonitorService.Resolve(settings.CaptureMonitor).DeviceName; ApplyScale(); ApplyGlassBrush(); PositionPanel();
+        }
+        finally { settingsOpen = false; RegisterHotkeys(); }
+        if (update is { } ready) ApplyUpdate(ready.Release, ready.Package);
+    }
+    private void ApplyUpdate(ReleaseInfo release, string package)
+    {
+        applyingUpdate = true;
+        try
+        {
+            if (store.Items.Count > 0)
+            {
+                var decision = System.Windows.MessageBox.Show(this, "Hay capturas temporales. ¿Guardar todas antes de actualizar?\nSí: elegir carpeta y guardarlas. No: descartarlas. Cancelar: seguir en Clipsa.", "Clipsa · Actualizar", MessageBoxButton.YesNoCancel, MessageBoxImage.Question);
+                if (decision == MessageBoxResult.Cancel) return;
+                if (decision == MessageBoxResult.Yes)
+                {
+                    using var folder = new Forms.FolderBrowserDialog { Description = "Guardar las capturas antes de actualizar", SelectedPath = AppPaths.ResolveSaveFolder(settings.SaveFolder) };
+                    if (folder.ShowDialog() != Forms.DialogResult.OK) return;
+                    foreach (var capture in store.Items)
+                    {
+                        var name = Path.Combine(folder.SelectedPath, capture.Name);
+                        if (File.Exists(name)) name = Path.Combine(folder.SelectedPath, Path.GetFileNameWithoutExtension(capture.Name) + "_" + Guid.NewGuid().ToString("N") + ".png");
+                        File.Copy(capture.FilePath, name, false);
+                    }
+                }
+            }
+            else if (System.Windows.MessageBox.Show(this, "¿Actualizar a Clipsa " + release.Version + "? La aplicación se cerrará y volverá a abrirse. Se conservarán tus ajustes.", "Clipsa", MessageBoxButton.YesNo) != MessageBoxResult.Yes) return;
+            UpdateInstaller.Start(release, package); ExitApplication();
+        }
+        catch (Exception ex) { AppDiagnostics.Log(ex, "Preparar actualización"); System.Windows.MessageBox.Show(this, "No se pudo iniciar: " + ex.Message, "Clipsa"); }
+        finally { applyingUpdate = false; }
+    }
     private void Card_MouseDown(object sender, MouseButtonEventArgs e)
     {
         suppressCompactClick = false; dragCard = null;
@@ -157,7 +208,13 @@ public partial class MainWindow : Window
     private void Compact_DragOver(object s, System.Windows.DragEventArgs e) { if (e.Data.GetDataPresent(typeof(CaptureItem))) { e.Effects = System.Windows.DragDropEffects.Move; var x = e.GetPosition(CompactScroll).X; ScrollNearEdge(CompactScroll, x); ShowInsertionAt(CompactScroll, CompactCards, CompactIndex(x)); e.Handled = true; } }
     private void Compact_Drop(object s, System.Windows.DragEventArgs e) { if (e.Data.GetData(typeof(CaptureItem)) is CaptureItem item) { var index = CompactIndex(e.GetPosition(CompactScroll).X); var from = store.Items.IndexOf(item); if (from < 0) return; if (index > from) index--; if (index != from) store.Items.Move(from, Math.Clamp(index, 0, store.Items.Count - 1)); HideInsertion(); e.Handled = true; } }
     private void CardImage_MouseDown(object sender, MouseButtonEventArgs e) { if (e.ClickCount != 2) return; var node = e.OriginalSource as DependencyObject; while (node is not null) { if (node is System.Windows.Controls.Image image && image.DataContext is CaptureItem item) { OpenAnnotation(item); e.Handled = true; return; } node = System.Windows.Media.VisualTreeHelper.GetParent(node); } }
-    private void OpenAnnotation(CaptureItem item) { var editor = new AnnotationWindow(item.FilePath) { Owner = this }; if (editor.ShowDialog() == true) store.Refresh(item); }
+    private void OpenAnnotation(CaptureItem item)
+    {
+        if (captureBusy) return; captureBusy = true;
+        try { var editor = new AnnotationWindow(item.FilePath) { Owner = this }; if (editor.ShowDialog() == true) store.Refresh(item); }
+        catch (Exception ex) { AppDiagnostics.Log(ex, "Abrir editor"); System.Windows.MessageBox.Show(this, "No se pudo abrir la captura: " + ex.Message, "Clipsa"); }
+        finally { captureBusy = false; }
+    }
     private void Card_MouseEnter(object sender, System.Windows.Input.MouseEventArgs e) { if (sender is FrameworkElement card && card.Tag is CaptureItem) { card.RenderTransformOrigin = new System.Windows.Point(.5, .5); card.RenderTransform = new ScaleTransform(1.045, 1.045); card.Opacity = .98; System.Windows.Controls.Panel.SetZIndex(card, 5); } }
     private void Card_MouseLeave(object sender, System.Windows.Input.MouseEventArgs e) { if (sender is FrameworkElement card && card.Tag is CaptureItem) { card.RenderTransform = null; card.Opacity = 1; System.Windows.Controls.Panel.SetZIndex(card, 0); } }
     private void Cards_MouseMove(object sender, System.Windows.Input.MouseEventArgs e) { var node = e.OriginalSource as DependencyObject; FrameworkElement? card = null; while (node is not null) { if (node is FrameworkElement candidate && candidate.Tag is CaptureItem) { card = candidate; break; } node = System.Windows.Media.VisualTreeHelper.GetParent(node); } if (card == hoveredCard) return; if (hoveredCard is not null) { hoveredCard.RenderTransform = null; hoveredCard.Opacity = 1; System.Windows.Controls.Panel.SetZIndex(hoveredCard, 0); } hoveredCard = card; if (hoveredCard is not null) { hoveredCard.RenderTransformOrigin = new System.Windows.Point(.5, .5); hoveredCard.RenderTransform = new ScaleTransform(1.045, 1.045); hoveredCard.Opacity = .98; System.Windows.Controls.Panel.SetZIndex(hoveredCard, 5); } }
@@ -215,7 +272,8 @@ public partial class MainWindow : Window
     private void Save_Click(object sender, RoutedEventArgs e) => ExecuteAction(() =>
     {
         var item = Item(sender);
-        var folder = Directory.Exists(settings.SaveFolder) ? settings.SaveFolder : AppPaths.DefaultSaveFolder;
+        var requestedFolder = AppPaths.ResolveSaveFolder(settings.SaveFolder);
+        var folder = Directory.Exists(requestedFolder) ? requestedFolder : AppPaths.DefaultSaveFolder;
         Directory.CreateDirectory(folder);
         using var dialog = new Forms.SaveFileDialog { InitialDirectory = folder, FileName = item.Name, Filter = "Imagen PNG (*.png)|*.png", AddExtension = true };
         if (dialog.ShowDialog() != Forms.DialogResult.OK) return;

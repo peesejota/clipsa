@@ -123,7 +123,7 @@ internal static class Program
             using (var stream = System.IO.File.Create(file)) encoder.Save(stream);
             CheckHistory(file, flags);
             CheckLiveEditorKeys(file, flags);
-            var editor = new AnnotationWindow(file);
+            var editor = new AnnotationWindow(file, promptOnDiscard: false);
             var surface = (FrameworkElement)editor.FindName("DrawingSurface");
             surface.Measure(new Size(240, 160)); surface.Arrange(new Rect(0, 0, 240, 160)); surface.UpdateLayout();
             var render = typeof(AnnotationWindow).GetMethod("RenderImage", flags)!;
@@ -208,7 +208,7 @@ internal static class Program
             dropped = e.Data.GetData(DataFormats.FileDrop) is string[] paths && paths.Length == 1 && paths[0] == file;
             e.Effects = DragDropEffects.Copy; e.Handled = true; frame.Continue = false;
         };
-        host.Show(); host.UpdateLayout();
+        host.Show(); host.UpdateLayout(); ScrollChecks.Pump(250);
         var start = source.PointToScreen(new Point(source.ActualWidth / 2, source.ActualHeight / 2));
         var finish = target.PointToScreen(new Point(90, 70));
         GetCursorPos(out var cursor);
@@ -241,7 +241,7 @@ internal static class Program
     }
     static void CheckLiveEditorKeys(string file, BindingFlags flags)
     {
-        var editor = new AnnotationWindow(file) { Width = 760, Height = 500, Left = 300, Top = 270, Topmost = true, WindowStartupLocation = WindowStartupLocation.Manual };
+        var editor = new AnnotationWindow(file, promptOnDiscard: false) { Width = 760, Height = 500, Left = 300, Top = 270, Topmost = true, WindowStartupLocation = WindowStartupLocation.Manual };
         editor.Show(); editor.Activate(); editor.UpdateLayout();
         var surface = (FrameworkElement)editor.FindName("DrawingSurface");
         typeof(AnnotationWindow).GetMethod("Tool_Click", flags)!.Invoke(editor, new object[] { new Button { Tag = "Crop" }, new RoutedEventArgs() });
@@ -283,7 +283,7 @@ internal static class Program
     }
     static void CheckHistory(string file, BindingFlags flags)
     {
-        var editor = new AnnotationWindow(file);
+        var editor = new AnnotationWindow(file, promptOnDiscard: false);
         var ink = (Canvas)editor.FindName("Ink");
         var surface = (FrameworkElement)editor.FindName("DrawingSurface");
         void Layout() { surface.Measure(new Size(surface.Width, surface.Height)); surface.Arrange(new Rect(0, 0, surface.Width, surface.Height)); surface.UpdateLayout(); }
@@ -344,20 +344,21 @@ internal static class Program
         RenderOptions.SetBitmapScalingMode(image, BitmapScalingMode.NearestNeighbor);
         var scroller = new ScrollViewer { Content = image, VerticalScrollBarVisibility = ScrollBarVisibility.Hidden, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
         var host = new Window { Title = "Clipsa scroll verification", Content = scroller, Width = 260, Height = 260, Left = 20, Top = 300, Topmost = true };
-        host.Show(); host.UpdateLayout();
+        host.Show(); host.UpdateLayout(); ScrollChecks.Pump(250);
         var a = scroller.PointToScreen(new Point(10, 10)); var b = scroller.PointToScreen(new Point(210, 190));
         var bounds = new System.Drawing.Rectangle((int)a.X, (int)a.Y, (int)(b.X - a.X), (int)(b.Y - a.Y));
         var type = typeof(MainWindow).Assembly.GetType("Clipsa.ScrollCaptureWindow")!;
         var session = (Window)Activator.CreateInstance(type, BindingFlags.Public | BindingFlags.Instance, null, new object[] { bounds, 100 }, null)!;
         var step = 0;
         var ticker = new System.Windows.Threading.DispatcherTimer { Interval = TimeSpan.FromMilliseconds(1100) };
-        ticker.Tick += (_, _) =>
+        ticker.Tick += async (_, _) =>
         {
             step++;
             if (step <= 3) scroller.ScrollToVerticalOffset(step * 40);
             else
             {
                 ticker.Stop(); type.GetMethod("Finish", BindingFlags.NonPublic | BindingFlags.Instance)!.Invoke(session, null);
+                for (var wait = 0; wait < 100 && session.IsVisible && type.GetProperty("ResultPath")!.GetValue(session) is null; wait++) await Task.Delay(20);
                 if (type.GetProperty("ResultPath")!.GetValue(session) is null)
                 {
                     var state = (TextBlock)type.GetField("status", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(session)!;

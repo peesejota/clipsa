@@ -7,6 +7,7 @@
             <Grid Grid.Row="0">
                 <Grid.ColumnDefinitions><ColumnDefinition Width="120"/><ColumnDefinition/><ColumnDefinition Width="120"/></Grid.ColumnDefinitions>
                 <TextBlock x:Name="StatusText" Grid.Column="0" Foreground="{StaticResource Ink}" FontSize="11" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
+                <Button x:Name="UpdateBadge" Grid.Column="0" Content="Nueva versión ↓" Click="Settings_Click" Visibility="Collapsed" ToolTip="Actualización disponible. Abrir Ajustes para descargar o actualizar." Background="#FFA99BFF" Foreground="#FF171A26" Padding="4,0"/>
                 <StackPanel x:Name="BrandTitle" Grid.Column="1" HorizontalAlignment="Center" Orientation="Horizontal" VerticalAlignment="Center"><Image Source="/Clipsa;component/Brand/clipsa-icon.png" Width="22" Height="22" Margin="0,0,7,0"/><TextBlock Text="CLIPSA" Foreground="{StaticResource Ink}" FontFamily="Segoe UI Variable Display, Segoe UI" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center"/></StackPanel>
                 <ScrollViewer x:Name="CompactScroll" Grid.Column="1" Visibility="Collapsed" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled" Margin="8,0" PreviewMouseWheel="HorizontalWheel">
                     <ItemsControl x:Name="CompactCards"><ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>

@@ -14,7 +14,7 @@ public sealed class HotkeySetting
 
 public sealed class AppSettings
 {
-    public int SchemaVersion { get; set; } = 1;
+    public int SchemaVersion { get; set; } = 2;
     public HotkeySetting Full { get; set; } = new();
     public HotkeySetting Region { get; set; } = new() { Key = 0x52, Display = "Ctrl + Alt + R" };
     public HotkeySetting Scroll { get; set; } = new() { Key = 0x53, Display = "Ctrl + Alt + S" };
@@ -23,13 +23,13 @@ public sealed class AppSettings
     public double ScrollOverlap { get; set; } = .72;
     public double PanelScale { get; set; } = 1.0;
     public int GlassOpacity { get; set; } = 68;
-    public string SaveFolder { get; set; } = AppPaths.DefaultSaveFolder;
+    public string SaveFolder { get; set; } = AppPaths.IsPortable ? "." : AppPaths.DefaultSaveFolder;
     public bool KeepInTray { get; set; } = true;
     public bool StartWithWindows { get; set; }
     public bool RecoverAfterCrash { get; set; }
     public string CaptureMonitor { get; set; } = "";
-    public string UpdateFeedUrl { get; set; } = "";
-    public bool CheckUpdatesOnStartup { get; set; }
+    public string UpdateFeedUrl { get; set; } = UpdateService.DefaultFeed;
+    public bool CheckUpdatesOnStartup { get; set; } = true;
 }
 
 public static class SettingsStore
@@ -67,7 +67,11 @@ public static class SettingsStore
         value.GlassOpacity = Math.Clamp(value.GlassOpacity, 0, 100);
         value.ScrollDelay = Math.Clamp(value.ScrollDelay, 100, 400);
         value.CaptureMonitor ??= ""; value.UpdateFeedUrl ??= "";
-        if (string.IsNullOrWhiteSpace(value.SaveFolder) || !Path.IsPathFullyQualified(value.SaveFolder)) value.SaveFolder = AppPaths.DefaultSaveFolder;
+        if (string.IsNullOrWhiteSpace(value.UpdateFeedUrl)) { value.UpdateFeedUrl = UpdateService.DefaultFeed; if (value.SchemaVersion < 2) value.CheckUpdatesOnStartup = true; }
+        if (string.IsNullOrWhiteSpace(value.SaveFolder)) value.SaveFolder = AppPaths.IsPortable ? "." : AppPaths.DefaultSaveFolder;
+        if (AppPaths.IsPortable && Path.IsPathFullyQualified(value.SaveFolder) && File.Exists(Path.Combine(value.SaveFolder, "portable.mode"))) value.SaveFolder = ".";
+        if (!Path.IsPathFullyQualified(value.SaveFolder) && !AppPaths.IsPortable) value.SaveFolder = AppPaths.DefaultSaveFolder;
+        value.SchemaVersion = 2;
         var keys = new HashSet<(uint, uint, uint)>();
         foreach (var hotkey in new[] { value.Full, value.Region, value.Scroll })
         {

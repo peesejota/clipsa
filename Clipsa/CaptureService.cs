@@ -13,6 +13,7 @@ public static class CaptureService
         var screen = MonitorService.Resolve(monitorDeviceName);
         var overlay = new RegionWindow(screen.DeviceName); overlay.ShowDialog();
         if (overlay.SelectedRectangle is not { Width: > 40, Height: > 80 } rect) return null;
+        Native.DwmFlush(); // Wait for the closed selection overlay to leave the desktop composition.
         var session = new ScrollCaptureWindow(new System.Drawing.Rectangle((int)rect.X, (int)rect.Y, (int)rect.Width, (int)rect.Height), delay);
         session.ShowDialog(); return session.ResultPath;
     }

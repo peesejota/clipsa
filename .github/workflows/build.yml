@@ -12,7 +12,7 @@ on:
         type: boolean
         default: false
       release_tag:
-        description: Tag matching the project version, e.g. v0.4.3-beta.1
+        description: Tag matching the project version, e.g. v0.5.0-beta.1
         type: string
         default: ''
 
@@ -87,6 +87,10 @@ jobs:
             if (!@($inventory | Where-Object { $_.package.StartsWith($required) }).Count) { throw "Missing legal notices: $required" }
           }
           ConvertTo-Json -InputObject @($inventory) -Depth 5 | Set-Content staging/installed/licenses/runtime-packages/inventory.json -Encoding utf8
+          # Explicit ownership inventory: the portable updater never replaces data or user exports.
+          $base = (Resolve-Path staging/installed).Path
+          $files = @(Get-ChildItem staging/installed -Recurse -File | ForEach-Object { $_.FullName.Substring($base.Length + 1).Replace('\', '/') })
+          ConvertTo-Json -InputObject $files | Set-Content staging/installed/app-files.json -Encoding utf8NoBOM
       - name: Check bundled runtime and WPF resources
         shell: pwsh
         run: |
@@ -152,6 +156,6 @@ jobs:
           SOURCE_COMMIT: ${{ github.sha }}
         run: |
           set -euo pipefail
-          args=(--draft --target "$SOURCE_COMMIT" --title "Clipsa $RELEASE_TAG" --notes "Draft: review antivirus status, signatures and packages before publishing. Automatic installation is not implemented.")
+          args=(--draft --target "$SOURCE_COMMIT" --title "Clipsa $RELEASE_TAG" --notes "Draft: sign the manifests with release-tools before publishing. Do not activate an unsigned feed. Review antivirus status and packages first.")
           if [[ "$RELEASE_TAG" == *-beta.* ]]; then args+=(--prerelease); fi
           gh release create "$RELEASE_TAG" artifacts/* "${args[@]}"

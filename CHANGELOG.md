@@ -1,5 +1,16 @@
 # Cambios
 
+## 0.5.0 · beta · 12 de noviembre de 2026
+
+- Canal beta oficial y comprobación al iniciar/cada seis horas, con aviso persistente.
+- Descarga integrada con progreso, manifiesto RSA-PSS y verificación SHA256; separación instalada/portable.
+- Actualizador fuera del proceso principal: conserva capturas tras confirmación, ajustes y exportaciones; portable con respaldo y rollback.
+- Rutas relativas para portable y migración de carpetas portables anteriores; no usa datos de otra instalación si su carpeta no permite escribir.
+- El inicio automático sólo se cambia al modificar la opción y no elimina el de otra copia.
+- Aviso de cambios sin guardar al cerrar el editor, goma sobre texto y guardado explícito de scroll parcial.
+- Runtime .NET/WPF 10.0.15 y SDK 10.0.404.
+- Herramienta de publicación local con clave privada en Windows CNG; nunca se incluyen claves privadas ni credenciales en el código.
+
 ## 0.4.3 · beta · 14 de octubre de 2026
 
 - Elimina el aviso modal inicial en cada captura con scroll.
