@@ -5,6 +5,7 @@ public partial class RegionWindow : Window
 {
     private readonly System.Drawing.Rectangle physicalBounds;
     private System.Windows.Point? start;
+    private CaptureCancellation? cancelInput;
     public Rect? SelectedRectangle { get; private set; }
     public RegionWindow(string monitorDeviceName = "")
     {
@@ -14,7 +15,14 @@ public partial class RegionWindow : Window
         var dip = MonitorService.Bounds(screen);
         Left = dip.Left; Top = dip.Top; Width = dip.Width; Height = dip.Height;
         SourceInitialized += (_, _) => MonitorService.PlaceWindow(this, physicalBounds);
-        Loaded += (_, _) => MonitorService.PlaceWindow(this, physicalBounds);
+        Loaded += (_, _) =>
+        {
+            MonitorService.PlaceWindow(this, physicalBounds);
+            try { cancelInput = new CaptureCancellation(() => Dispatcher.BeginInvoke(Cancel)); }
+            catch (Exception ex) { AppDiagnostics.Log(ex, "Activar cancelación de selección"); }
+        };
+        PreviewMouseRightButtonUp += (_, e) => { e.Handled = true; Cancel(); };
+        Closed += (_, _) => { cancelInput?.Dispose(); cancelInput = null; ReleaseMouseCapture(); };
     }
     private System.Windows.Point Clamp(System.Windows.Point p) => new(Math.Clamp(p.X, 0, ActualWidth), Math.Clamp(p.Y, 0, ActualHeight));
     private void Mouse_Down(object s, MouseButtonEventArgs e) { start = Clamp(e.GetPosition(this)); CaptureMouse(); }
@@ -31,5 +39,10 @@ public partial class RegionWindow : Window
         SelectedRectangle = right - left > 4 && bottom - top > 4 ? new Rect(left, top, right - left, bottom - top) : null;
         DialogResult = SelectedRectangle.HasValue;
     }
-    private void Window_KeyDown(object s, System.Windows.Input.KeyEventArgs e) { if (e.Key == Key.Escape) { SelectedRectangle = null; ReleaseMouseCapture(); DialogResult = false; } }
+    private void Cancel()
+    {
+        if (!IsVisible) return;
+        start = null; SelectedRectangle = null; ReleaseMouseCapture(); DialogResult = false;
+    }
+    private void Window_KeyDown(object s, System.Windows.Input.KeyEventArgs e) { if (e.Key == Key.Escape) { e.Handled = true; Cancel(); } }
 }

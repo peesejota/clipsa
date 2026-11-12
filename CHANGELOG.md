@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.5.3 · beta · 12 de noviembre de 2026
+
+- Escape y clic derecho cancelan la selección de región antes o durante el arrastre y liberan el ratón sin crear una captura.
+- Cancelación de scroll aunque el foco esté en la web u otra aplicación; se descartan los tramos de la sesión cancelada.
+- También se puede cancelar durante la preparación inicial de la captura; la barra vuelve a su estado anterior.
+- Las pulsaciones de cancelación no se propagan a la aplicación capturada. La escucha se retira al finalizar y se conserva el funcionamiento normal de teclado y ratón.
+- Indicación de cancelación en la selección y en el estado inicial de scroll; los avisos de selección quedan fuera de la captura de región.
+
 ## 0.5.2 · beta · 12 de noviembre de 2026
 
 - Corrige el falso aviso de aplicación abierta al actualizar: el auxiliar cierra el identificador del mutex antes de iniciar Setup.

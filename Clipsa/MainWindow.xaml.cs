@@ -133,15 +133,32 @@ public partial class MainWindow : Window
     private void RunCapture(Func<string?> capture)
     {
         if (captureBusy || settingsOpen || applyingUpdate || dragInProgress) return;
-        captureBusy = true;
         panelMonitor = MonitorService.Resolve(settings.CaptureMonitor).DeviceName;
+        captureBusy = true;
+        var cancellation = new CancellationTokenSource();
+        CaptureCancellation preparation;
+        try { preparation = new CaptureCancellation(cancellation.Cancel); }
+        catch (Exception ex)
+        {
+            cancellation.Dispose(); captureBusy = false;
+            AppDiagnostics.Log(ex, "Preparar captura cancelable"); StatusText.Text = "No se pudo preparar la captura: " + ex.Message; return;
+        }
         var wasVisible = IsVisible;
         Hide();
         Dispatcher.BeginInvoke(async () =>
         {
-            try { await Task.Delay(150); var path = capture(); if (path is not null) Add(path); else if (wasVisible) Show(); }
+            try
+            {
+                using (preparation)
+                    await Task.Delay(150, cancellation.Token);
+                cancellation.Token.ThrowIfCancellationRequested();
+                var path = capture();
+                if (path is not null) Add(path);
+                else { if (wasVisible) Show(); StatusText.Text = "Captura cancelada"; }
+            }
+            catch (OperationCanceledException) { if (wasVisible) Show(); StatusText.Text = "Captura cancelada"; }
             catch (Exception ex) { AppDiagnostics.Log(ex, "Capturar"); Show(); StatusText.Text = "Error: " + ex.Message; }
-            finally { captureBusy = false; PositionPanel(); }
+            finally { preparation.Dispose(); cancellation.Dispose(); captureBusy = false; PositionPanel(); }
         }, DispatcherPriority.ApplicationIdle);
     }
     private void Add(string path) => store.Add(path); private void TogglePanel() { if (IsVisible) Hide(); else { Show(); PositionPanel(); } } private void ClosePanel_Click(object sender, RoutedEventArgs e) => Close(); private void Settings_Click(object sender, RoutedEventArgs e) => ShowSettings();

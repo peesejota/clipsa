@@ -1,6 +1,6 @@
 ; Compile with Inno Setup 6.3+ and the complete self-contained installed payload.
 #ifndef AppVersion
-  #define AppVersion "0.5.2"
+  #define AppVersion "0.5.3"
 #endif
 #ifndef PayloadDir
   #error PayloadDir must point to a self-contained publish directory

@@ -1,6 +1,6 @@
 # Privacidad y datos locales
 
-En 0.4.1, los gestos Impr Pant asignados usan un listener de teclado de Windows mientras Clipsa está abierta. Sólo mantiene el estado necesario para esos atajos; no registra texto tecleado ni lo envía a ningún servidor. Los demás gestos se dejan pasar. No se modifica la preferencia de Recortes ni se crean exclusiones antivirus.
+Los gestos Impr Pant asignados usan un listener de teclado de Windows mientras Clipsa está abierta. Sólo mantiene el estado necesario para esos atajos; no registra texto tecleado ni lo envía a ningún servidor. Desde 0.5.3, únicamente durante la preparación, selección o captura con scroll, se escuchan también Escape y el botón derecho para cancelar aunque el foco esté en otra aplicación. Se consumen esas pulsaciones y se retira esa escucha al terminar la sesión. No se guardan posiciones del ratón ni un historial de entrada. Los demás gestos se dejan pasar. No se modifica la preferencia de Recortes ni se crean exclusiones antivirus.
 
 Las capturas pueden contener contraseñas, documentos y conversaciones. Clipsa trabaja con archivos locales; el instalador no envía capturas, ajustes ni informes de fallo. Revisa las imágenes antes de exportarlas o compartirlas. La copia al portapapeles, el historial de Windows y las carpetas sincronizadas pueden dar acceso a otras aplicaciones o servicios ajenos a Clipsa.
 

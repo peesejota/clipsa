@@ -29,6 +29,7 @@ internal sealed class ScrollCaptureWindow : Window
     private Bitmap? header, footer;
     private int position, minimum, maximum, fixedTop, fixedBottom;
     private bool bodyInitialized, processing, finishing, finished, sizeLimitReached;
+    private CaptureCancellation? cancelInput;
     public string? ResultPath { get; private set; }
 
     // Kept exactly for reflection-based LiveScroll verification.
@@ -63,6 +64,8 @@ internal sealed class ScrollCaptureWindow : Window
         timer.Tick += (_, _) => Tick();
         Loaded += (_, _) =>
         {
+            try { cancelInput = new CaptureCancellation(() => Dispatcher.BeginInvoke(Cancel)); }
+            catch (Exception ex) { AppDiagnostics.Log(ex, "Activar cancelación de scroll"); }
             var scale = MonitorService.DpiScale(screen);
             var area = screen.WorkingArea;
             var w = Math.Min(area.Width, (int)Math.Ceiling(Width * scale.X));
@@ -97,7 +100,7 @@ internal sealed class ScrollCaptureWindow : Window
                 using var initial = Capture();
                 InitializeFirstFrame(initial, ScrollStitcher.Pixels(initial));
                 partial.IsEnabled = true;
-                status.Text = $"Inicio guardado · {region.Width} × {region.Height} px. Desplaza arriba o abajo, dejando solapamiento. Pulsa Terminar cuando acabes.";
+                status.Text = $"Inicio guardado · {region.Width} × {region.Height} px. Desplaza arriba o abajo, dejando solapamiento. Terminar para guardar · Esc o clic derecho para cancelar.";
                 timer.Start();
             }
             catch (Exception ex)
@@ -108,17 +111,22 @@ internal sealed class ScrollCaptureWindow : Window
             }
         };
         PreviewKeyDown += (_, e) => { if (e.Key == System.Windows.Input.Key.Escape) { e.Handled = true; Cancel(); } };
+        PreviewMouseRightButtonUp += (_, e) => { e.Handled = true; Cancel(); };
         Closed += (_, _) =>
         {
+            cancelInput?.Dispose(); cancelInput = null;
             timer.Stop(); cancellation.Cancel();
-            if (!finished) AppDiagnostics.Log(new OperationCanceledException("Manual scroll session cancelled."), "Cancel scroll capture");
             finished = true;
             foreach (var frame in frames) frame.Image.Dispose();
             header?.Dispose(); footer?.Dispose();
         };
     }
 
-    private void Cancel() { cancellation.Cancel(); DialogResult = false; }
+    private void Cancel()
+    {
+        if (finished || !IsVisible) return;
+        ResultPath = null; timer.Stop(); cancellation.Cancel(); DialogResult = false;
+    }
 
     private bool TargetUnmoved()
     {

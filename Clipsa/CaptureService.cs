@@ -7,7 +7,7 @@ public static class CaptureService
 {
     public static string TempFolder => AppPaths.SessionFolder;
     public static string CaptureScreen(string monitorDeviceName = "") { var b = MonitorService.Resolve(monitorDeviceName).Bounds; using var bmp = new Bitmap(b.Width, b.Height, PixelFormat.Format32bppArgb); using (var g = Graphics.FromImage(bmp)) g.CopyFromScreen(b.Location, System.Drawing.Point.Empty, b.Size); return Save(bmp); }
-    public static string? CaptureRegion(string monitorDeviceName = "") { var overlay = new RegionWindow(monitorDeviceName); overlay.ShowDialog(); return overlay.SelectedRectangle is { Width: > 4, Height: > 4 } r ? CaptureRectangle(r) : null; }
+    public static string? CaptureRegion(string monitorDeviceName = "") { var overlay = new RegionWindow(monitorDeviceName); overlay.ShowDialog(); Native.DwmFlush(); return overlay.SelectedRectangle is { Width: > 4, Height: > 4 } r ? CaptureRectangle(r) : null; }
     public static string? CaptureScroll(int steps, int delay, double overlap, string monitorDeviceName = "")
     {
         var screen = MonitorService.Resolve(monitorDeviceName);
