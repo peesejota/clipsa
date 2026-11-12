@@ -10,6 +10,14 @@ const string KeyName = "Clipsa.UpdateSigning.2026.v1";
 const string Repository = "peesejota/clipsa";
 var jsonOptions = new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase, WriteIndented = true };
 if (args.Length == 0) throw new ArgumentException("Commands: init-key | sign <artifacts> <version> <tag> | publish <artifacts> <version> <tag> | backup-key <encrypted-file>");
+if (args[0] == "logs")
+{
+    using var client = await GitHubClient();
+    var logs = await client.GetStringAsync($"https://api.github.com/repos/{Repository}/actions/jobs/{long.Parse(args[1])}/logs");
+    File.WriteAllText(args[2], logs);
+    Console.WriteLine("CI job log downloaded locally; credentials were not exported.");
+    return;
+}
 if (args[0] == "fetch")
 {
     var destination = Path.GetFullPath(args[2]);

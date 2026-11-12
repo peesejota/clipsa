@@ -82,7 +82,7 @@ const
 var
   ApplicationMutex: THandle;
 
-function CreateApplicationMutex(Attributes: NativeInt; InitialOwner: BOOL; Name: String): THandle;
+function CreateApplicationMutex(Attributes: THandle; InitialOwner: BOOL; Name: String): THandle;
   external 'CreateMutexW@kernel32.dll stdcall';
 function WaitApplicationMutex(Handle: THandle; Milliseconds: DWORD): DWORD;
   external 'WaitForSingleObject@kernel32.dll stdcall';
