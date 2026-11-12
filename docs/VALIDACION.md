@@ -1,5 +1,11 @@
 # Validación de Clipsa
 
+## Revisión 0.5.1 · 12 de noviembre de 2026
+
+Se añadieron secuencias con Impr Pant emitida como pulsación completa o sólo liberación antes del número, además de la combinación mantenida. Se comprueban 1/2/3, teclado numérico, repeticiones, caducidad a 750 ms, cancelación al escribir otras teclas, ausencia de doble captura y conservación de la configuración anterior. Los perfiles nuevos usan Impr Pant + 1/2/3; no se sobrescriben los atajos guardados.
+
+Pruebas locales con eventos de teclado inyectados: listener nativo, grabador de Ajustes y la ventana real de Clipsa visible, compacta y oculta. En cada estado se comprobó una captura completa y la apertura del selector de región y de scroll, cancelándolos después. Los datos de prueba se aíslan de los del usuario. Esto no certifica físicamente todos los firmwares Fn ni programas de teclado que intercepten eventos antes de la aplicación.
+
 ## Revisión 0.5.0 · 12 de noviembre de 2026
 
 SDK 10.0.404 y runtime objetivo .NET/WPF 10.0.15. Pruebas superadas: firma RSA-PSS con clave pública fijada, selección instalada/portable, rechazo de manifiestos alterados, SHA256 incorrecto y rutas de ZIP peligrosas, conservación de datos/exportaciones, restauración de archivos al fallar una actualización portable, pertenencia del inicio automático y rutas relativas portables. El material firmado de prueba usa versión 0.0.0 y dominio reservado `.invalid`; no es una actualización ejecutable.

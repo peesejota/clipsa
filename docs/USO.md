@@ -1,8 +1,8 @@
 # Uso de Clipsa
 
-Esta documentación describe el contrato de la beta 0.4.0. Antes de distribuirla, el responsable debe completar las comprobaciones de [validación](VALIDACION.md), incluidas las funciones incorporadas en paralelo en la aplicación.
+Uso de la beta 0.5.1. Consulta las pruebas realizadas y sus límites en [validación](VALIDACION.md).
 
-1. Abre Clipsa y usa los botones del panel, el menú de la bandeja o los atajos configurables: `Ctrl+Alt+T` (pantalla), `Ctrl+Alt+R` (región), `Ctrl+Alt+S` (scroll).
+1. Abre Clipsa y usa los botones del panel, el menú de la bandeja o los atajos configurables. En configuraciones nuevas: `Impr Pant + 1` (pantalla), `Impr Pant + 2` (región), `Impr Pant + 3` (scroll). Mantén Impr Pant mientras pulsas el número, o púlsala y después el número en menos de 0,75 segundos. Si tu teclado exige Fn para emitir Impr Pant, úsala también. Los atajos guardados se conservan; para cambiar los anteriores, elige **Usar Impr Pant + 1 / 2 / 3** en Ajustes y guarda.
 2. Para una región, arrastra la selección; `Esc` cancela. Para scroll, selecciona solo contenido desplazable, desplázate dejando una zona común entre tramos y pulsa Terminar.
 3. Abre una captura para editarla. Puedes anotar, recortar y usar `Ctrl+Z` para deshacer o `Ctrl+Y`/`Ctrl+Shift+Z` para rehacer. Exporta las imágenes que quieras conservar.
 4. Ajusta los atajos, el aspecto y el comportamiento desde Ajustes. El inicio con Windows es opcional. Si mueves la carpeta portable, vuelve a configurar el inicio con Windows para que apunte a la nueva ruta.

@@ -6,6 +6,7 @@ namespace Clipsa;
 
 public sealed class HotkeySetting
 {
+    public static HotkeySetting PrintScreen(uint number) => new() { Key = 0x2C, Modifiers = 0, ChordKey = 0x30 + number, Display = "Impr Pant + " + number };
     public uint Modifiers { get; set; } = 0x0002 | 0x0001;
     public uint Key { get; set; } = 0x54;
     public uint ChordKey { get; set; }
@@ -15,9 +16,9 @@ public sealed class HotkeySetting
 public sealed class AppSettings
 {
     public int SchemaVersion { get; set; } = 2;
-    public HotkeySetting Full { get; set; } = new();
-    public HotkeySetting Region { get; set; } = new() { Key = 0x52, Display = "Ctrl + Alt + R" };
-    public HotkeySetting Scroll { get; set; } = new() { Key = 0x53, Display = "Ctrl + Alt + S" };
+    public HotkeySetting Full { get; set; } = HotkeySetting.PrintScreen(1);
+    public HotkeySetting Region { get; set; } = HotkeySetting.PrintScreen(2);
+    public HotkeySetting Scroll { get; set; } = HotkeySetting.PrintScreen(3);
     public int ScrollSteps { get; set; } = 5;
     public int ScrollDelay { get; set; } = 250;
     public double ScrollOverlap { get; set; } = .72;
@@ -62,7 +63,7 @@ public static class SettingsStore
 
     private static void Normalize(AppSettings value)
     {
-        value.Full ??= new(); value.Region ??= new() { Key = 0x52, Display = "Ctrl + Alt + R" }; value.Scroll ??= new() { Key = 0x53, Display = "Ctrl + Alt + S" };
+        value.Full ??= HotkeySetting.PrintScreen(1); value.Region ??= HotkeySetting.PrintScreen(2); value.Scroll ??= HotkeySetting.PrintScreen(3);
         value.PanelScale = double.IsFinite(value.PanelScale) ? Math.Clamp(value.PanelScale, .7, 1.4) : 1;
         value.GlassOpacity = Math.Clamp(value.GlassOpacity, 0, 100);
         value.ScrollDelay = Math.Clamp(value.ScrollDelay, 100, 400);

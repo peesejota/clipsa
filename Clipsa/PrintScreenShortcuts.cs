@@ -9,30 +9,61 @@ public sealed class PrintScreenChordTracker
     private readonly HotkeySetting[] bindings;
     private readonly HashSet<uint> swallowedUps = new();
     private bool armed;
+    private bool pending;
+    private long deadline;
+    private readonly Func<long> clock;
+    public const int SequenceTimeoutMilliseconds = 750;
     private uint modifiers, selected;
-    public PrintScreenChordTracker(IEnumerable<HotkeySetting> shortcuts) => bindings = shortcuts.ToArray();
+    public PrintScreenChordTracker(IEnumerable<HotkeySetting> shortcuts, Func<long>? clock = null)
+    { bindings = shortcuts.ToArray(); this.clock = clock ?? (() => Environment.TickCount64); }
+    public bool Expire(out HotkeySetting? match)
+    {
+        match = null;
+        if (!pending || clock() < deadline) return false;
+        pending = false;
+        match = bindings.FirstOrDefault(b => b.Modifiers == modifiers && b.ChordKey == 0);
+        return match is not null;
+    }
+    private void ReleasePrefix(uint currentModifiers, out HotkeySetting? match)
+    {
+        modifiers = currentModifiers; selected = 0; match = null;
+        if (bindings.Any(b => b.Modifiers == modifiers && b.ChordKey != 0))
+        { pending = true; deadline = clock() + SequenceTimeoutMilliseconds; }
+        else match = bindings.FirstOrDefault(b => b.Modifiers == modifiers && b.ChordKey == 0);
+    }
     public bool Process(uint key, bool down, uint currentModifiers, out HotkeySetting? match)
     {
         match = null;
+        if (pending && clock() >= deadline) pending = false;
         if (key is >= 0x61 and <= 0x63) key -= 0x30; // numeric keypad
         if (!down && swallowedUps.Remove(key)) return true;
+        if (down && swallowedUps.Contains(key)) return true;
         if (key == 0x2C)
         {
             if (down)
             {
                 if (armed) return true; // no repeat
                 if (!bindings.Any(b => b.Modifiers == currentModifiers)) return false;
-                armed = true; modifiers = currentModifiers; selected = 0; return true;
+                pending = false; armed = true; modifiers = currentModifiers; selected = 0; return true;
             }
             if (!armed)
             {
-                // Some keyboards emit Print Screen on release only.
-                match = bindings.FirstOrDefault(b => b.Modifiers == currentModifiers && b.ChordKey == 0);
-                return match is not null;
+                // Laptop/Fn keys may emit a complete pulse or only a key-up.
+                if (pending) return true;
+                if (!bindings.Any(b => b.Modifiers == currentModifiers)) return false;
+                ReleasePrefix(currentModifiers, out match);
+                return true;
             }
             armed = false;
+            if (selected == 0) { ReleasePrefix(modifiers, out match); return true; }
             match = bindings.FirstOrDefault(b => b.Modifiers == modifiers && b.ChordKey == selected);
             selected = 0; return true;
+        }
+        if (pending && down)
+        {
+            pending = false;
+            match = bindings.FirstOrDefault(b => b.Modifiers == modifiers && currentModifiers == modifiers && b.ChordKey == key && key != 0);
+            if (match is not null) { swallowedUps.Add(key); return true; }
         }
         if (!armed || !bindings.Any(b => b.Modifiers == modifiers && b.ChordKey == key && key != 0)) return false;
         if (down) { if (selected == 0) selected = key; swallowedUps.Add(key); }
@@ -67,6 +98,9 @@ public sealed class PrintScreenShortcuts : IDisposable
             PeekMessage(out _, IntPtr.Zero, 0, 0, 0);
             hook = SetWindowsHookEx(13, callback, GetModuleHandle(null), 0);
             if (hook == IntPtr.Zero) throw new Win32Exception(Marshal.GetLastWin32Error());
+            using var expiry = new System.Windows.Forms.Timer { Interval = 25 };
+            expiry.Tick += (_, _) => { if (!disposed && tracker.Expire(out var match) && match is not null) activate(match); };
+            expiry.Start();
             ready.TrySetResult();
             System.Windows.Forms.Application.Run();
         }
@@ -78,6 +112,7 @@ public sealed class PrintScreenShortcuts : IDisposable
         if (code >= 0 && !disposed && message.ToInt32() is 0x100 or 0x101 or 0x104 or 0x105)
         {
             var key = (uint)Marshal.ReadInt32(data);
+            if (tracker.Expire(out var expired) && expired is not null) activate(expired);
             var down = message.ToInt32() is 0x100 or 0x104;
             uint modifiers = 0;
             if ((GetAsyncKeyState(0x12) & 0x8000) != 0) modifiers |= 1;

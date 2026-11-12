@@ -1,5 +1,12 @@
 # Cambios
 
+## 0.5.1 · beta · 12 de noviembre de 2026
+
+- Impr Pant + 1/2/3 como valores iniciales: pantalla, región y scroll. Se respetan las configuraciones guardadas.
+- Compatible con mantener Impr Pant o pulsarla y después el número en 750 ms, incluidos teclados Fn que emiten una pulsación breve o sólo una liberación.
+- La pulsación simple espera cuando comparte tecla con combinaciones; se evitan capturas duplicadas, repeticiones y secuencias caducadas.
+- Pruebas adicionales de secuencias y funcionamiento real con la barra visible, compacta y oculta.
+
 ## 0.5.0 · beta · 12 de noviembre de 2026
 
 - Canal beta oficial y comprobación al iniciar/cada seis horas, con aviso persistente.

@@ -14,6 +14,7 @@ internal static class Program
         if (args.Contains("--public-channel-only")) { PublicChannelChecks.RunAsync().GetAwaiter().GetResult(); return; }
         if (args.Contains("--updates-only")) { UpdateChecks.Run(); return; }
         if (args.Contains("--shortcuts-only")) { ShortcutChecks.Run(); return; }
+        if (args.Contains("--shortcut-state-only")) { ShortcutChecks.Run(false); return; }
         Environment.SetEnvironmentVariable("CLIPSA_DATA_DIR", System.IO.Path.Combine(System.IO.Path.GetTempPath(), "Clipsa-checks-" + Guid.NewGuid().ToString("N")));
         var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
         app.Resources.MergedDictionaries.Add((ResourceDictionary)Application.LoadComponent(new Uri("/Clipsa;component/Theme.xaml", UriKind.Relative)));

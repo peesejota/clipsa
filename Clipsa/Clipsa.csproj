@@ -9,7 +9,7 @@
     <UseWindowsForms>true</UseWindowsForms>
     <AssemblyName>Clipsa</AssemblyName>
     <RootNamespace>Clipsa</RootNamespace>
-    <Version>0.5.0</Version>
+    <Version>0.5.1</Version>
     <RuntimeFrameworkVersion>10.0.15</RuntimeFrameworkVersion>
     <Description>Clipsa: capturas, edición y scroll manual para Windows.</Description>
     <Product>Clipsa</Product>

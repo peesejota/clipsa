@@ -50,6 +50,8 @@ jobs:
         run: |
           dotnet run --project verification/Clipsa.Checks.csproj --configuration Release -- --updates-only
           if ($LASTEXITCODE -ne 0) { throw 'Update validation failed.' }
+          dotnet run --project verification/Clipsa.Checks.csproj --configuration Release --no-build -- --shortcut-state-only
+          if ($LASTEXITCODE -ne 0) { throw 'Shortcut state validation failed.' }
       - name: Publish self-contained Windows payload
         shell: pwsh
         run: |
