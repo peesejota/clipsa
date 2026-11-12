@@ -10,6 +10,10 @@ Scroll: detección de texto con desplazamiento de 520 px sobre una vista de 600 
 
 Barra compacta: hover real, transferencia del puntero de la miniatura al panel, cinco acciones enlazadas a la captura correcta y explicadas, apertura real del editor y del selector de guardado, cancelación del selector conservando el archivo y eliminación de la captura de QA con su botón. Arnés: `--compact-actions-only`, datos aislados.
 
+También pasó la batería completa de edición, recorte, transparencia, icono en color, arrastre compacto a receptor externo y scroll en vivo. Los paquetes finales proceden del [run 43313464825](https://github.com/peesejota/clipsa/actions/runs/43313464825), commit `11a8a71c128ee405f992d75af2fee52e85f47b5f`. Pasaron las comprobaciones de actualizador, atajos y matcher en CI, instalación/reinstalación/desinstalación y portable extraída.
+
+La [Release 0.5.3 beta](https://github.com/peesejota/clipsa/releases/tag/v0.5.3-beta.1) está publicada con instalador, ZIP y manifiestos firmados. Se verificaron las huellas de los seis archivos contra sus digests públicos antes de activar el canal. Kaspersky 21.27 analizó 1.004 objetos: cero detecciones, sospechas, omisiones o errores; informe local no publicado `docs/verificacion/kaspersky-0.5.3-scan.txt`. Se mantiene pendiente la alerta histórica de comportamiento y la validación externa en otro PC.
+
 ## Revisión 0.5.2 · 12 de noviembre de 2026
 
 Prueba local `--shutdown-update-only` superada: con KeepInTray activado, barra oculta y otra ventana oculta, el cierre para actualizar cierra ambas ventanas y termina el bucle WPF. Las pruebas no cierran la instancia real ni modifican los datos del usuario.
