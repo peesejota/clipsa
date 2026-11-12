@@ -6,6 +6,10 @@ Se añadieron secuencias con Impr Pant emitida como pulsación completa o sólo 
 
 Pruebas locales con eventos de teclado inyectados: listener nativo, grabador de Ajustes y la ventana real de Clipsa visible, compacta y oculta. En cada estado se comprobó una captura completa y la apertura del selector de región y de scroll, cancelándolos después. Los datos de prueba se aíslan de los del usuario. Esto no certifica físicamente todos los firmwares Fn ni programas de teclado que intercepten eventos antes de la aplicación.
 
+También pasó la batería completa de edición, arrastre, transparencia y scroll. Los paquetes proceden del [run 43280838224](https://github.com/peesejota/clipsa/actions/runs/43280838224), commit `adf69a56cc62ad1548a82e85b8e113df60c49b0a`, con pruebas de secuencias en CI e instalación/reinstalación/desinstalación y portable extraída superadas. Kaspersky 21.27 analizó los paquetes: 1.003 objetos, cero detecciones, sospechas, omisiones o errores; informe local no publicado en `docs/verificacion/kaspersky-0.5.1-scan.txt`. La alerta histórica sigue pendiente.
+
+La [Release 0.5.1 beta](https://github.com/peesejota/clipsa/releases/tag/v0.5.1-beta.1) está publicada con instalador, ZIP y manifiestos firmados. Las huellas de los seis archivos coinciden con los digests públicos de GitHub; el canal se actualizó después de comprobar los archivos publicados.
+
 ## Revisión 0.5.0 · 12 de noviembre de 2026
 
 SDK 10.0.404 y runtime objetivo .NET/WPF 10.0.15. Pruebas superadas: firma RSA-PSS con clave pública fijada, selección instalada/portable, rechazo de manifiestos alterados, SHA256 incorrecto y rutas de ZIP peligrosas, conservación de datos/exportaciones, restauración de archivos al fallar una actualización portable, pertenencia del inicio automático y rutas relativas portables. El material firmado de prueba usa versión 0.0.0 y dominio reservado `.invalid`; no es una actualización ejecutable.
