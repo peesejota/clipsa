@@ -130,6 +130,43 @@ jobs:
           @{version=$version; tag=$tag; signed=$false; commit=$env:GITHUB_SHA; runtime=(Get-Content staging/installed/Clipsa.runtimeconfig.json -Raw | ConvertFrom-Json).runtimeOptions.includedFrameworks; innoCompilerSha256=(Get-FileHash $inno).Hash.ToLowerInvariant()} | ConvertTo-Json -Depth 6 | Set-Content artifacts/release.json -Encoding utf8NoBOM
           $checksums = @(Get-ChildItem artifacts -File | Sort-Object Name | ForEach-Object { (Get-FileHash $_.FullName).Hash.ToLowerInvariant() + '  ' + $_.Name })
           $checksums | Set-Content artifacts/SHA256SUMS.txt -Encoding utf8NoBOM
+      - name: Verify installer lifecycle and extracted portable
+        shell: pwsh
+        env:
+          CLIPSA_VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          $ErrorActionPreference = 'Stop'
+          function Run-Checked([string]$exe, [string[]]$arguments) {
+            $process = Start-Process -FilePath $exe -ArgumentList $arguments -WindowStyle Hidden -PassThru
+            if (!$process.WaitForExit(120000)) { $process.Kill(); throw 'Package test timed out.' }
+            if ($process.ExitCode -notin @(0,3010)) { throw "Package exited with $($process.ExitCode)." }
+          }
+          $root = Join-Path $env:RUNNER_TEMP 'Clipsa package QA'
+          $installed = Join-Path $root 'Installed app'
+          $data = Join-Path $root 'isolated-user-data'
+          New-Item -ItemType Directory $data -Force | Out-Null
+          $env:CLIPSA_DATA_DIR = $data
+          $env:DOTNET_ROOT = Join-Path $root 'absent-runtime'
+          $env:DOTNET_ROOT_X64 = $env:DOTNET_ROOT
+          $setup = "$env:GITHUB_WORKSPACE/artifacts/Clipsa-$env:CLIPSA_VERSION-win-x64-setup.exe"
+          $flags = @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART','/SP-','/TASKS=""',"/DIR=`"$installed`"")
+          Run-Checked $setup $flags
+          $report = Join-Path $root 'installed.json'
+          Run-Checked (Join-Path $installed 'Clipsa.exe') @('--self-test','--report',"`"$report`"")
+          $smoke = Get-Content $report -Raw | ConvertFrom-Json
+          if (!$smoke.passed -or $smoke.portable) { throw 'Installed smoke failed.' }
+          'preserved-user-data' | Set-Content (Join-Path $data 'sentinel.txt')
+          Run-Checked $setup $flags
+          if (!(Test-Path (Join-Path $data 'sentinel.txt'))) { throw 'Reinstall lost data.' }
+          Run-Checked (Join-Path $installed 'unins000.exe') @('/VERYSILENT','/SUPPRESSMSGBOXES','/NORESTART')
+          if ((Test-Path (Join-Path $installed 'Clipsa.exe')) -or !(Test-Path (Join-Path $data 'sentinel.txt'))) { throw 'Uninstall/data preservation failed.' }
+          $portable = Join-Path $root 'Portable with spaces'
+          Expand-Archive -LiteralPath "artifacts/Clipsa-$env:CLIPSA_VERSION-win-x64-portable.zip" -DestinationPath $portable
+          $env:CLIPSA_DATA_DIR = $null
+          $report = Join-Path $root 'portable.json'
+          Run-Checked (Join-Path $portable 'Clipsa.exe') @('--self-test','--report',"`"$report`"")
+          $smoke = Get-Content $report -Raw | ConvertFrom-Json
+          if (!$smoke.passed -or !$smoke.portable -or $smoke.dataDirectory -ne (Join-Path $portable 'data')) { throw 'Portable/local data smoke failed.' }
       - uses: actions/upload-artifact@v4
         with:
           name: Clipsa-${{ steps.version.outputs.version }}-win-x64
