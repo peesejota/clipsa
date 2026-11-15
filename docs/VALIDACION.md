@@ -2,6 +2,8 @@
 
 ## Revisión 0.7.0 · 15 de noviembre de 2026
 
+Paquetes del [run 43759396999](https://github.com/peesejota/clipsa/actions/runs/43759396999), commit `cabec17cf5732070f03686358dd51855d6adf2a1`, con las comprobaciones de actualizador, atajos, matcher, geometría, instalación/reinstalación/desinstalación y portable extraída superadas. Publicada la [Release 0.7.0 beta](https://github.com/peesejota/clipsa/releases/tag/v0.7.0-beta.1); las seis huellas coinciden con los digests públicos y el manifiesto descargado coincide con el local. Canal activado tras verificar los archivos. Kaspersky 21.27: 1.003 objetos, cero detecciones, sospechas, omisiones o errores; informe local `docs/verificacion/kaspersky-0.7.0-scan.txt`. Los manifiestos están firmados con RSA; EXE e instalador siguen sin Authenticode y la alerta histórica de comportamiento permanece pendiente.
+
 Se reprodujo el falso «sin solapamiento» con contenido desplazable y un lateral fijo de 260 px sobre una selección de 600 px. Tras añadir comprobación central, las cuatro variantes de laterales pasan con desplazamiento correcto y las vistas sin contenido común siguen rechazadas. La prueba se ejecuta también en CI con `--scroll-match-only`.
 
 Pruebas locales `--held-scroll-only` y `--held-key-only`: selección real manteniendo el botón izquierdo, inicio mediante rueda o flecha, recepción de ambas entradas en otro proceso de QA y guardado al soltar, sin pulsar Terminar. Resultado 350 × 380 px, altura completa y primeras filas conservadas. Se contrastó la primera vista entera contra una captura previa para excluir contaminación del marco/controles; el marco permanece visible, deja pasar la entrada a la ventana original y se cierra al terminar. `--held-cancel-only` confirma Escape sin PNG ni marco residual.
