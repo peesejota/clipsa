@@ -11,6 +11,10 @@ internal sealed class ScrollDriver
     private readonly uint process;
     private ScrollPattern? pattern;
     private bool searched;
+    public bool AtEnd
+    {
+        get { try { return pattern is not null && pattern.Current.VerticalScrollPercent >= 99.9; } catch (Exception ex) when (ex is InvalidOperationException or COMException) { return false; } }
+    }
     private readonly CancellationToken cancellation;
     public ScrollDriver(IntPtr window, IntPtr content, Rectangle region, CancellationToken cancellation)
     {

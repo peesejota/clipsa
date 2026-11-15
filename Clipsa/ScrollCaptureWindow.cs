@@ -170,7 +170,7 @@ internal sealed class ScrollCaptureWindow : Window
 
     private void ToggleGuided()
     {
-        if (guidedTask is { IsCompleted: false }) { guidedCancellation?.Cancel(); return; }
+        if (guidedTask is { IsCompleted: false }) { guidedCancellation?.Cancel(); driver.Focus(); return; }
         if (finished || finishing || previous is null || sizeLimitReached) return;
         guidedCancellation?.Dispose();
         guidedCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellation.Token);
@@ -212,7 +212,7 @@ internal sealed class ScrollCaptureWindow : Window
                     }
                 }
                 unchanged = moved ? 0 : unchanged + 1;
-                if (unchanged >= 8) { status.Text = "Final alcanzado o la página ya no se desplaza. Pulsa Terminar y guardar."; break; }
+                if (unchanged >= 8) { status.Text = driver.AtEnd ? "Final de página alcanzado. Pulsa Terminar y guardar." : "La página no responde al guiado o no avanza más. Comprueba el final o continúa manualmente antes de guardar."; break; }
             }
         }
         catch (OperationCanceledException) { }
