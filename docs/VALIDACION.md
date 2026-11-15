@@ -6,6 +6,8 @@ Los paquetes finales proceden del [run 43750130498](https://github.com/peesejota
 
 La [Release 0.6.0 beta](https://github.com/peesejota/clipsa/releases/tag/v0.6.0-beta.1) está publicada. Las huellas de sus seis archivos coinciden con los digests públicos de GitHub y el manifiesto descargado coincide con el local. El canal se activa después de esa comprobación. Kaspersky 21.27: 1.004 objetos analizados, cero detecciones, sospechas, omisiones o errores; informe local no publicado `docs/verificacion/kaspersky-0.6.0-scan.txt`. Los manifiestos están firmados; EXE e instalador siguen sin Authenticode. El análisis no resuelve la alerta histórica de comportamiento.
 
+Comprobación final `--public-channel-only`: el canal público entrega 0.6.0, firma válida y SHA256 correcto para instalador (53.729.282 bytes) y portable (76.392.259 bytes). Ambos paquetes se descargaron sólo en memoria, sin guardar ni ejecutar el código descargado.
+
 Pruebas de geometría: nueve anclajes, posiciones libres, orígenes negativos, tamaños mayores que pantalla y pestañas dentro del área útil. Prueba WPF: HWND en la posición elegida, formato compacto vertical, espera de activación, despliegue/ocultación en cuatro bordes y persistencia.
 
 Scroll con destino en otro proceso de QA: Flecha abajo y rueda inyectadas, continuación guiada, parada/guardado, altura completa y primeras filas conservadas. Resultado 350 × 500 px. No certifica físicamente todos los trackpads ni todos los proveedores de accesibilidad.
