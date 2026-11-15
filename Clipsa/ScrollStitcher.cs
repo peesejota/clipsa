@@ -45,15 +45,28 @@ public static class ScrollStitcher
         if (fixedTop < -1 || fixedBottom < -1 || fixedTop >= height || fixedBottom >= height
             || Math.Max(0, fixedTop) + Math.Max(0, fixedBottom) >= height)
             throw new ArgumentOutOfRangeException(nameof(fixedTop));
-        if (Score(previous, current, width, height, 0, 0, 0, 64) <= .5)
+        var result = MatchArea(previous, current, width, height, cancellationToken, fixedTop, fixedBottom, 0, width);
+        if (result.Kind is MatchKind.Matched or MatchKind.Unchanged || width < 128) return result;
+        // A stationary sidebar can overwhelm a correct full-width comparison.
+        // Retry broad central regions; retain unique-offset and dense-content checks.
+        foreach (var inset in new[] { width / 8, width / 4 })
+        {
+            var central = MatchArea(previous, current, width, height, cancellationToken, fixedTop, fixedBottom, inset, width - inset);
+            if (central.Kind == MatchKind.Matched) return central;
+        }
+        return result;
+    }
+    private static MatchResult MatchArea(byte[] previous, byte[] current, int width, int height, CancellationToken cancellationToken, int fixedTop, int fixedBottom, int left, int right)
+    {
+        if (Score(previous, current, width, height, 0, 0, 0, 64, left: left, right: right) <= .5)
             return new(MatchKind.Unchanged, 0, 0, 0, 0);
 
         var top = 0; var bottom = 0;
         var bandLimit = height / 3;
         if (fixedTop >= 0) top = fixedTop;
-        else while (top < bandLimit && RowDifference(previous, current, width, top) <= .5) top++;
+        else while (top < bandLimit && RowDifference(previous, current, width, top, left, right) <= .5) top++;
         if (fixedBottom >= 0) bottom = fixedBottom;
-        else while (bottom < bandLimit && RowDifference(previous, current, width, height - bottom - 1) <= .5) bottom++;
+        else while (bottom < bandLimit && RowDifference(previous, current, width, height - bottom - 1, left, right) <= .5) bottom++;
         var body = height - top - bottom;
         var maximum = body - Math.Max(24, body / 16);
         if (maximum < 1) return new(MatchKind.NoOverlap, 0, top, bottom, double.PositiveInfinity);
@@ -63,18 +76,19 @@ public static class ScrollStitcher
         for (var offset = -maximum; offset <= maximum; offset++)
         {
             if ((offset & 31) == 0) cancellationToken.ThrowIfCancellationRequested();
-            var error = Score(previous, current, width, height, offset, top, bottom, 12, 6);
+            var error = Score(previous, current, width, height, offset, top, bottom, 12, 6, left, right);
             errors[offset + maximum] = error;
             if (error < bestError) { bestError = error; best = offset; }
         }
-        if (best == 0 || bestError > 5) return MatchText(previous, current, width, height, top, bottom, cancellationToken);
-        var verifiedError = Score(previous, current, width, height, best, top, bottom, 32);
-        if (verifiedError > 5 || ContentError(previous, current, width, height, best, top, bottom, width / 25, width - width / 25) > 35)
-            return MatchText(previous, current, width, height, top, bottom, cancellationToken);
+        var contentLeft = Math.Max(left, width / 25); var contentRight = Math.Min(right, width - width / 25);
+        if (best == 0 || bestError > 5) return MatchText(previous, current, width, height, top, bottom, cancellationToken, contentLeft, contentRight);
+        var verifiedError = Score(previous, current, width, height, best, top, bottom, 32, left: left, right: right);
+        if (verifiedError > 5 || ContentError(previous, current, width, height, best, top, bottom, contentLeft, contentRight) > 35)
+            return MatchText(previous, current, width, height, top, bottom, cancellationToken, contentLeft, contentRight);
         // Repeated rows or blank views provide no defensible displacement.
         for (var offset = -maximum; offset <= maximum; offset++)
             if (Math.Abs(offset - best) > 2 && errors[offset + maximum] <= Math.Max(1, bestError + 1))
-                return MatchText(previous, current, width, height, top, bottom, cancellationToken);
+                return MatchText(previous, current, width, height, top, bottom, cancellationToken, contentLeft, contentRight);
         cancellationToken.ThrowIfCancellationRequested();
         return new(MatchKind.Matched, best, top, bottom, verifiedError);
     }
@@ -82,9 +96,8 @@ public static class ScrollStitcher
     // Sparse text often looks identical at the old 12 x 12 grid points (white space).
     // Row signatures sample across the content and include horizontal edges; empty rows
     // cannot establish a displacement. Dense pixel verification still rejects false joins.
-    private static MatchResult MatchText(byte[] a, byte[] b, int width, int height, int top, int bottom, CancellationToken token)
+    private static MatchResult MatchText(byte[] a, byte[] b, int width, int height, int top, int bottom, CancellationToken token, int left, int right)
     {
-        var left = width / 25; var right = width - left;
         var first = Signatures(a, width, height, left, right);
         var second = Signatures(b, width, height, left, right);
         // Do not freeze blank document margins as a fixed footer/header.
@@ -170,19 +183,20 @@ public static class ScrollStitcher
         if (a.Length != bytes || b.Length != bytes) throw new ArgumentException("Expected tightly packed BGRA frames of identical dimensions.");
     }
 
-    private static double RowDifference(byte[] a, byte[] b, int width, int row)
+    private static double RowDifference(byte[] a, byte[] b, int width, int row, int left, int right)
     {
         double sum = 0;
         for (var col = 1; col <= 128; col++)
         {
-            var i = (row * width + col * width / 129) * 4;
+            var i = (row * width + left + col * (right - left) / 129) * 4;
             for (var channel = 0; channel < 3; channel++) sum += Math.Abs(a[i + channel] - b[i + channel]);
         }
         return sum / 384;
     }
 
-    private static double Score(byte[] a, byte[] b, int width, int height, int offset, int top, int bottom, int samples, double cutoff = double.PositiveInfinity)
+    private static double Score(byte[] a, byte[] b, int width, int height, int offset, int top, int bottom, int samples, double cutoff = double.PositiveInfinity, int left = 0, int right = -1)
     {
+        if (right < 0) right = width;
         var first = top + Math.Max(0, -offset);
         var overlap = height - bottom - Math.Max(0, offset) - first;
         if (overlap <= 0) return double.PositiveInfinity;
@@ -193,7 +207,7 @@ public static class ScrollStitcher
             var y = first + row * overlap / (samples + 1);
             for (var col = 1; col <= samples; col++)
             {
-                var x = col * width / (samples + 1);
+                var x = left + col * (right - left) / (samples + 1);
                 var i = ((y + offset) * width + x) * 4;
                 var j = (y * width + x) * 4;
                 for (var channel = 0; channel < 3; channel++) error += Math.Abs(a[i + channel] - b[j + channel]);

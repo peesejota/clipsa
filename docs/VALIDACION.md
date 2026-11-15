@@ -1,5 +1,15 @@
 # Validación de Clipsa
 
+## Revisión 0.7.0 · 15 de noviembre de 2026
+
+Se reprodujo el falso «sin solapamiento» con contenido desplazable y un lateral fijo de 260 px sobre una selección de 600 px. Tras añadir comprobación central, las cuatro variantes de laterales pasan con desplazamiento correcto y las vistas sin contenido común siguen rechazadas. La prueba se ejecuta también en CI con `--scroll-match-only`.
+
+Pruebas locales `--held-scroll-only` y `--held-key-only`: selección real manteniendo el botón izquierdo, inicio mediante rueda o flecha, recepción de ambas entradas en otro proceso de QA y guardado al soltar, sin pulsar Terminar. Resultado 350 × 380 px, altura completa y primeras filas conservadas. Se contrastó la primera vista entera contra una captura previa para excluir contaminación del marco/controles; el marco permanece visible, deja pasar la entrada a la ventana original y se cierra al terminar. `--held-cancel-only` confirma Escape sin PNG ni marco residual.
+
+Se repitieron esas tres pruebas después de guardar la primera vista con el selector aún abierto y excluido, antes del cambio a los controles de scroll. La prueba sigue contrastando la totalidad de los píxeles iniciales, incluida la ausencia de tinte y líneas de selección.
+
+Pasaron también scroll continuo lento/rápido (250 × 525 y 250 × 1225 px), guiado animado con entrada de rueda/teclado (350 × 520 px), la cancelación existente y las pruebas completas de edición, recorte/teclado, transparencia, arrastre, iconos y scroll controlado. Algunas ejecuciones de QA se interrumpieron por interferencia del puntero o composición/foco de la ventana de prueba; se fijó el foco de QA y se agruparon sus eventos con SendInput antes de repetir. No se certifican físicamente todos los trackpads. El intento adicional con un perfil aislado de Chrome no abrió la ventana y no se declara como prueba de navegador superada.
+
 ## Revisión 0.6.2 · 15 de noviembre de 2026
 
 Paquetes del [run 43753877961](https://github.com/peesejota/clipsa/actions/runs/43753877961), commit `651eea17ee20bf71d4aedb666cc9531cb1057e4f`, con comprobaciones de actualizador, atajos, matcher, geometría, instalación/reinstalación/desinstalación y portable extraída superadas. Publicada la [Release 0.6.2 beta](https://github.com/peesejota/clipsa/releases/tag/v0.6.2-beta.1); las seis huellas coinciden con los digests públicos y el manifiesto descargado coincide con el local. Canal actualizado después de verificar los archivos. Kaspersky 21.27: 1.003 objetos, cero detecciones, sospechas, omisiones o errores; informe local no publicado `docs/verificacion/kaspersky-0.6.2-scan.txt`. Los manifiestos están firmados; EXE e instalador siguen sin Authenticode y no se declara resuelta la alerta histórica de comportamiento.

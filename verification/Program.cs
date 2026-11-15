@@ -11,6 +11,9 @@ internal static class Program
     [STAThread]
     static void Main(string[] args)
     {
+        if (args.Contains("--held-scroll-only")) { HeldScrollChecks.Run(); return; }
+        if (args.Contains("--held-key-only")) { HeldScrollChecks.Run(true); return; }
+        if (args.Contains("--held-cancel-only")) { HeldScrollChecks.Run(cancel: true); return; }
         if (args.Contains("--side-actions-only")) { CompactActionsChecks.Run("Left"); return; }
         if (args.Length == 2 && args[0] == "--guided-scroll-host") { GuidedScrollChecks.Host(args[1]); return; }
         if (args.Length == 2 && args[0] == "--guided-scroll-host-smooth") { GuidedScrollChecks.Host(args[1], true); return; }
@@ -30,6 +33,7 @@ internal static class Program
         Environment.SetEnvironmentVariable("CLIPSA_DATA_DIR", System.IO.Path.Combine(System.IO.Path.GetTempPath(), "Clipsa-checks-" + Guid.NewGuid().ToString("N")));
         var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
         app.Resources.MergedDictionaries.Add((ResourceDictionary)Application.LoadComponent(new Uri("/Clipsa;component/Theme.xaml", UriKind.Relative)));
+        if (args.Contains("--browser-scroll-only")) { BrowserScrollChecks.Run(); CaptureService.Cleanup(); return; }
         if (args.Contains("--scroll-only")) { CheckScroll(); ScrollChecks.Run(); CaptureService.Cleanup(); return; }
         if (Environment.GetEnvironmentVariable("CLIPSA_BROWSER_QA") == "only")
         {

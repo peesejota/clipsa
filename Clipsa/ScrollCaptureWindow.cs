@@ -26,6 +26,18 @@ internal sealed class ScrollCaptureWindow : Window
     private bool gapDetected;
     private bool captureLoop;
     private bool captureResult;
+    private bool finishOnRelease;
+    private bool captureStarted;
+    private int firstWheel, firstKey;
+    private Task? firstGesture;
+    private ScrollRegionFrame? selectionFrame;
+    private long gapSince;
+    public void UseHoldGesture(int wheel, int key) { finishOnRelease = true; firstWheel = wheel; firstKey = key; }
+    public void PrepareBaseline(Bitmap frame)
+    {
+        if (frame.Width != region.Width || frame.Height != region.Height) throw new ArgumentException("Initial frame must match the selected region.");
+        InitializeFirstFrame(frame, ScrollStitcher.Pixels(frame));
+    }
     public bool? ShowCapture()
     {
         captureLoop = true;
@@ -41,14 +53,13 @@ internal sealed class ScrollCaptureWindow : Window
         else DialogResult = success;
     }
     private readonly DispatcherTimer timer;
+    private readonly DispatcherTimer releaseTimer = new() { Interval = TimeSpan.FromMilliseconds(20) };
     private readonly Queue<Bitmap> pending = new();
     private readonly int queueLimit;
-    private long lastPreview;
     // Offset is the strip's document coordinate, including negative coordinates when scrolling up.
     private readonly List<(Bitmap Image, int Offset)> frames = new();
     private readonly CancellationTokenSource cancellation = new();
     private readonly TextBlock status = new() { Foreground = WpfBrushes.White, Margin = new Thickness(8), TextWrapping = TextWrapping.Wrap };
-    private readonly System.Windows.Controls.Image preview = new() { Width = 180, Height = 90, Stretch = System.Windows.Media.Stretch.Uniform, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(8, 0, 8, 4) };
     private byte[]? previous;
     private byte[]? anchor;
     private int anchorPosition;
@@ -71,29 +82,35 @@ internal sealed class ScrollCaptureWindow : Window
         targetWindow = GetAncestor(contentWindow, 2);
         driver = new ScrollDriver(targetWindow, contentWindow, bounds, cancellation.Token);
         if (targetWindow != IntPtr.Zero && GetWindowRect(targetWindow, out var original)) targetBounds = original.Rectangle;
-        Title = "Clipsa · Scroll"; Width = 560; Height = 290;
+        Title = "Clipsa · Scroll"; Width = 540; Height = 116;
+        WindowStyle = WindowStyle.None; AllowsTransparency = true;
         Topmost = true; ShowInTaskbar = false; ResizeMode = ResizeMode.NoResize;
         WindowStartupLocation = WindowStartupLocation.Manual;
         var work = MonitorService.WorkArea(screen);
         Width = Math.Min(Width, work.Width); Height = Math.Min(Height, work.Height);
         Left = work.Left; Top = work.Bottom - Height;
-        Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(35, 31, 53));
+        Background = WpfBrushes.Transparent;
         var root = new StackPanel { Margin = new Thickness(8) };
         root.Children.Add(status);
-        root.Children.Add(preview);
         var buttons = new WrapPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
         var finish = new Button { Content = "Terminar y guardar", IsEnabled = false, Padding = new Thickness(12, 5, 12, 5), Margin = new Thickness(4) };
-        var partial = new Button { Content = "Guardar lo capturado", IsEnabled = false, Padding = new Thickness(8, 5, 8, 5), Margin = new Thickness(4), ToolTip = "Guardar sólo los tramos aceptados, aunque el último desplazamiento no se haya podido unir." };
+        var partial = new Button { Content = "Guardar parcial", IsEnabled = false, Padding = new Thickness(8, 5, 8, 5), Margin = new Thickness(4), ToolTip = "Guardar sólo los tramos aceptados, aunque el último desplazamiento no se haya podido unir." };
         var cancel = new Button { Content = "Cancelar", Padding = new Thickness(12, 5, 12, 5), Margin = new Thickness(4) };
         finish.Click += (_, _) => Finish(); cancel.Click += (_, _) => Cancel();
         partial.Click += (_, _) => { if (System.Windows.MessageBox.Show(this, "¿Guardar únicamente los tramos aceptados? La parte final que no se haya unido puede faltar.", "Clipsa", MessageBoxButton.YesNo) == MessageBoxResult.Yes) FinishCore(false); };
         guided.Click += (_, _) => ToggleGuided();
-        buttons.Children.Add(cancel); buttons.Children.Add(guided); buttons.Children.Add(partial); buttons.Children.Add(finish); root.Children.Add(buttons); Content = root;
+        buttons.Children.Add(cancel); buttons.Children.Add(guided); buttons.Children.Add(partial); buttons.Children.Add(finish); root.Children.Add(buttons);
+        Content = new Border { CornerRadius = new CornerRadius(12), BorderThickness = new Thickness(1), BorderBrush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(160, 169, 155, 255)), Background = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(240, 29, 25, 48)), Child = root };
         // The old three-stable-sample gate skipped the entire gesture during continuous scroll.
         // Keep screen sampling independent of matching so short intermediate
         // views are retained while the previous pair is being processed.
         timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(Math.Clamp(delay / 20, 16, 20)) };
         timer.Tick += (_, _) => Tick();
+        releaseTimer.Tick += (_, _) =>
+        {
+            if (!finishOnRelease || finished) { releaseTimer.Stop(); return; }
+            if ((GetAsyncKeyState(1) & 0x8000) == 0) { releaseTimer.Stop(); Finish(); }
+        };
         var controlsReady = false;
         status.Text = "Preparando captura…";
         Loaded += (_, _) =>
@@ -105,44 +122,60 @@ internal sealed class ScrollCaptureWindow : Window
             var w = Math.Min(area.Width, (int)Math.Ceiling(Width * scale.X));
             var h = Math.Min(area.Height, (int)Math.Ceiling(Height * scale.Y));
             var controls = new Rectangle(area.Left, area.Bottom - h, w, h);
-            if (!Native.SetWindowDisplayAffinity(new WindowInteropHelper(this).Handle, 0x11))
+            var excluded = Native.SetWindowDisplayAffinity(new WindowInteropHelper(this).Handle, 0x11);
+            if (!excluded)
             {
                 AppDiagnostics.Log(new System.ComponentModel.Win32Exception(System.Runtime.InteropServices.Marshal.GetLastWin32Error()), "Exclude scroll controls from capture; using placement fallback");
-                var choices = new[]
-                {
-                    new Rectangle(area.Left, area.Top, w, h),
-                    new Rectangle(area.Left, area.Bottom - h, w, h),
-                    new Rectangle(area.Right - w, area.Top, w, h),
-                    new Rectangle(area.Right - w, area.Bottom - h, w, h),
-                    new Rectangle(area.Left, region.Bottom + 8, w, h),
-                    new Rectangle(area.Left, region.Top - h - 8, w, h),
-                    new Rectangle(region.Right + 8, area.Top, w, h),
-                    new Rectangle(region.Left - w - 8, area.Top, w, h)
-                };
-                var safe = choices.FirstOrDefault(r => area.Contains(r) && !r.IntersectsWith(region));
-                if (safe.Width == 0)
-                {
-                    status.Text = "Selecciona una zona más pequeña para dejar fuera los controles de scroll.";
-                    finish.IsEnabled = false; return;
-                }
-                controls = safe;
             }
+            var choices = new[]
+            {
+                new Rectangle(area.Left, area.Top, w, h),
+                new Rectangle(area.Left, area.Bottom - h, w, h),
+                new Rectangle(area.Right - w, area.Top, w, h),
+                new Rectangle(area.Right - w, area.Bottom - h, w, h),
+                new Rectangle(area.Left, region.Bottom + 8, w, h),
+                new Rectangle(area.Left, region.Top - h - 8, w, h),
+                new Rectangle(region.Right + 8, area.Top, w, h),
+                new Rectangle(region.Left - w - 8, area.Top, w, h)
+            };
+            var safe = choices.FirstOrDefault(r => area.Contains(r) && !r.IntersectsWith(region));
+            if (safe.Width == 0 && !excluded)
+            {
+                status.Text = "Selecciona una zona más pequeña para dejar fuera los controles de scroll.";
+                finish.IsEnabled = false; return;
+            }
+            if (safe.Width > 0) controls = safe;
             MonitorService.PlaceWindow(this, controls);
             controlsReady = true;
         };
         ContentRendered += (_, _) =>
         {
-            if (!controlsReady || previous is not null || finished) return;
+            if (!controlsReady || captureStarted || finished) return;
+            captureStarted = true;
             driver.Focus();
             Native.DwmFlush(); // Placement, WPF rendering and exclusion must all be committed.
             try
             {
+                selectionFrame = new ScrollRegionFrame(region) { Owner = this };
+                if (!selectionFrame.ShowGuide()) selectionFrame = null;
+                driver.Focus(); Native.DwmFlush();
                 // Establish the baseline immediately, BEFORE inviting the user to scroll.
-                using var initial = Capture();
-                InitializeFirstFrame(initial, ScrollStitcher.Pixels(initial));
+                if (previous is null)
+                {
+                    using var initial = Capture();
+                    InitializeFirstFrame(initial, ScrollStitcher.Pixels(initial));
+                }
                 partial.IsEnabled = true; finish.IsEnabled = true; guided.IsEnabled = true;
-                status.Text = $"Inicio guardado · {region.Width} × {region.Height} px. Usa rueda, trackpad o flechas en la página, o pulsa Capturar más para el modo guiado. Esc/clic derecho cancela.";
+                status.Text = finishOnRelease
+                    ? $"{region.Width} × {region.Height} px · Sigue pulsando y desplaza. Suelta para terminar. Esc cancela."
+                    : $"{region.Width} × {region.Height} px · Desplaza con rueda, trackpad o flechas. Terminar para guardar. Esc cancela.";
                 timer.Start();
+                if (finishOnRelease)
+                {
+                    firstGesture = Task.Run(() => driver.ForwardInitial(firstWheel, firstKey));
+                    _ = ObserveFirstGesture();
+                    releaseTimer.Start();
+                }
             }
             catch (Exception ex)
             {
@@ -156,12 +189,19 @@ internal sealed class ScrollCaptureWindow : Window
         Closed += (_, _) =>
         {
             cancelInput?.Dispose(); cancelInput = null;
-            timer.Stop(); cancellation.Cancel();
+            selectionFrame?.Close(); selectionFrame = null;
+            timer.Stop(); releaseTimer.Stop(); cancellation.Cancel();
             finished = true;
             ClearPending();
             foreach (var frame in frames) frame.Image.Dispose();
             header?.Dispose(); footer?.Dispose();
         };
+    }
+
+    private async Task ObserveFirstGesture()
+    {
+        try { if (firstGesture is not null) await firstGesture; }
+        catch (Exception ex) { firstGesture = null; AppDiagnostics.Log(ex, "Iniciar scroll mantenido"); if (!finished) { finishOnRelease = false; status.Text = "No se pudo enviar el primer movimiento. Puedes continuar manualmente y pulsar Terminar."; } }
     }
 
     private void Cancel()
@@ -295,7 +335,7 @@ internal sealed class ScrollCaptureWindow : Window
             return true;
         }
         if (ScrollStitcher.Difference(previous, pixels, frame.Width, frame.Height) <= .5)
-        { if (gapDetected) { gapDetected = false; status.Text = "Unión recuperada. Puedes continuar o usar Capturar más."; } return true; }
+        { if (gapDetected) { gapDetected = false; gapSince = 0; selectionFrame?.SetGap(false); status.Text = "Unión recuperada. Puedes continuar."; } return true; }
         var old = anchor ?? previous;
         var referencePosition = anchor is null ? position : anchorPosition;
         var top = bodyInitialized ? fixedTop : -1;
@@ -310,18 +350,26 @@ internal sealed class ScrollCaptureWindow : Window
         if (finished) return false;
         if (match.Kind == ScrollStitcher.MatchKind.Unchanged)
         {
-            if (referencePosition == position) return true;
+            if (referencePosition == position)
+            {
+                gapDetected = false; gapSince = 0; selectionFrame?.SetGap(false); previous = pixels;
+                return true;
+            }
             match = new(ScrollStitcher.MatchKind.Matched, 0, fixedTop, fixedBottom, 0);
         }
         if (match.Kind != ScrollStitcher.MatchKind.Matched)
         {
+            if (!gapDetected) gapSince = Environment.TickCount64;
             gapDetected = true;
+            if (Environment.TickCount64 - gapSince < 350) return false;
+            selectionFrame?.SetGap(true);
             status.Text = match.Kind == ScrollStitcher.MatchKind.Ambiguous
                 ? "Esperando contenido reconocible. Lo capturado se conserva; desplázate más despacio."
                 : "Falta un tramo por un salto grande o un cambio de contenido. La captura sigue activa: vuelve un poco arriba hasta recuperar la unión y continúa. Lo anterior se conserva.";
             return false;
         }
         gapDetected = false;
+        gapSince = 0; selectionFrame?.SetGap(false);
         if (!bodyInitialized)
         {
             fixedTop = match.FixedTop; fixedBottom = match.FixedBottom;
@@ -365,8 +413,7 @@ internal sealed class ScrollCaptureWindow : Window
         // hundreds of tiny smooth-scroll frames at fractional display scales.
         if (anchor is null || Math.Abs((long)next - anchorPosition) >= Math.Max(1, bodyHeight / 3))
         { anchor = pixels; anchorPosition = next; }
-        UpdatePreview();
-        status.Text = $"{frames.Count} tramos · {region.Width} × {outputHeight} px. Sigue desplazando o pulsa Terminar.";
+        status.Text = $"{region.Width} × {outputHeight} px · {(finishOnRelease ? "Sigue pulsando y desplaza; suelta para terminar." : "Sigue desplazando o pulsa Terminar.")}";
         return true;
     }
 
@@ -374,25 +421,6 @@ internal sealed class ScrollCaptureWindow : Window
     {
         if (previous is not null) throw new InvalidOperationException("Scroll baseline already initialized.");
         frames.Add((new Bitmap(frame), 0)); previous = anchor = pixels; anchorPosition = 0; maximum = frame.Height;
-        UpdatePreview(true);
-    }
-    private void UpdatePreview(bool force = false)
-    {
-        var now = Environment.TickCount64;
-        if (!force && now - lastPreview < 120) return;
-        lastPreview = now;
-        var height = maximum - minimum + fixedTop + fixedBottom;
-        using var thumb = new Bitmap(180, 90, PixelFormat.Format32bppArgb);
-        using (var graphics = Graphics.FromImage(thumb))
-        {
-            graphics.Clear(System.Drawing.Color.Transparent);
-            var scale = Math.Min(180f / region.Width, 90f / height); graphics.ScaleTransform(scale, scale);
-            if (header is not null) graphics.DrawImageUnscaled(header, 0, 0);
-            foreach (var frame in frames) graphics.DrawImageUnscaled(frame.Image, 0, fixedTop + frame.Offset - minimum);
-            if (footer is not null) graphics.DrawImageUnscaled(footer, 0, fixedTop + maximum - minimum);
-        }
-        using var stream = new System.IO.MemoryStream(); thumb.Save(stream, ImageFormat.Png); stream.Position = 0;
-        var image = new System.Windows.Media.Imaging.BitmapImage(); image.BeginInit(); image.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad; image.StreamSource = stream; image.EndInit(); image.Freeze(); preview.Source = image;
     }
 
     private void Finish() => FinishCore(true);
@@ -400,12 +428,17 @@ internal sealed class ScrollCaptureWindow : Window
     {
         if (finished || finishing) return;
         finishing = true; timer.Stop();
+        // Once released, a recoverable gap stays in manual mode instead of
+        // retrying Finish on every timer tick or silently exporting a partial image.
+        var wasHeld = finishOnRelease; finishOnRelease = false;
         try
         {
+            if (firstGesture is not null) await firstGesture;
             guidedCancellation?.Cancel();
-            if (guidedTask is not null)
+            if (guidedTask is not null || wasHeld)
             {
-                await guidedTask;
+                if (guidedTask is not null) await guidedTask;
+                while (processing) await Task.Delay(20, cancellation.Token);
                 byte[]? last = null; var stable = 0;
                 for (var attempt = 0; attempt < 40 && stable < 3; attempt++)
                 {
@@ -426,7 +459,11 @@ internal sealed class ScrollCaptureWindow : Window
                 using var final = Capture();
                 // An unchanged final frame completes synchronously for the existing reflection verifier.
                 if (!await Accept(final, ScrollStitcher.Pixels(final), cancellation.Token) && !sizeLimitReached)
-                { timer.Start(); return; }
+                {
+                    selectionFrame?.SetGap(true);
+                    status.Text = "El último tramo aún no se ha unido. Vuelve un poco arriba para recuperarlo, o usa Guardar parcial para conservar sólo lo aceptado.";
+                    timer.Start(); return;
+                }
             }
             using var result = new Bitmap(region.Width, maximum - minimum + fixedTop + fixedBottom, PixelFormat.Format32bppArgb);
             using (var graphics = Graphics.FromImage(result))
@@ -449,6 +486,7 @@ internal sealed class ScrollCaptureWindow : Window
         public Rectangle Rectangle => System.Drawing.Rectangle.FromLTRB(Left, Top, Right, Bottom);
     }
     [DllImport("user32.dll")] private static extern IntPtr WindowFromPoint(NativePoint point);
+    [DllImport("user32.dll")] private static extern short GetAsyncKeyState(int key);
     [DllImport("user32.dll")] private static extern IntPtr GetAncestor(IntPtr hwnd, uint flags);
     [DllImport("user32.dll")] [return: MarshalAs(UnmanagedType.Bool)]
     private static extern bool GetWindowRect(IntPtr hwnd, out NativeRect rectangle);

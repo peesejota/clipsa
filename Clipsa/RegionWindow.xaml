@@ -2,7 +2,7 @@
     <Canvas>
         <Rectangle x:Name="Selection" Stroke="#B89FFF" StrokeThickness="2" Fill="#229B8CFF" />
         <Border Canvas.Left="24" Canvas.Top="16" Background="#DD171A26" CornerRadius="12" Padding="14,8" IsHitTestVisible="False">
-            <TextBlock Text="Arrastra para seleccionar · Esc o clic derecho para cancelar" Foreground="White" FontSize="12"/>
+            <TextBlock x:Name="SelectionHint" Text="Arrastra para seleccionar · Esc o clic derecho para cancelar" Foreground="White" FontSize="12"/>
         </Border>
     </Canvas>
 </Window>

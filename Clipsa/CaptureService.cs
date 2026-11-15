@@ -11,10 +11,13 @@ public static class CaptureService
     public static string? CaptureScroll(int steps, int delay, double overlap, string monitorDeviceName = "")
     {
         var screen = MonitorService.Resolve(monitorDeviceName);
-        var overlay = new RegionWindow(screen.DeviceName); overlay.ShowDialog();
+        var overlay = new RegionWindow(screen.DeviceName, true); overlay.ShowDialog();
+        using var initial = overlay.TakeScrollBaseline();
         if (overlay.SelectedRectangle is not { Width: > 40, Height: > 80 } rect) return null;
         Native.DwmFlush(); // Wait for the closed selection overlay to leave the desktop composition.
         var session = new ScrollCaptureWindow(new System.Drawing.Rectangle((int)rect.X, (int)rect.Y, (int)rect.Width, (int)rect.Height), delay);
+        if (initial is not null) session.PrepareBaseline(initial);
+        if (overlay.ScrollWhileHeld) session.UseHoldGesture(overlay.InitialWheelDelta, overlay.InitialScrollKey);
         session.ShowCapture(); return session.ResultPath;
     }
     private static string CaptureRectangle(Rect r) { using var bmp = new Bitmap((int)r.Width, (int)r.Height, PixelFormat.Format32bppArgb); using (var g = Graphics.FromImage(bmp)) g.CopyFromScreen((int)r.X, (int)r.Y, 0, 0, bmp.Size); return Save(bmp); }

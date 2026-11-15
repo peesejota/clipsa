@@ -1,4 +1,4 @@
-# Limitaciones de la beta 0.6.2
+# Limitaciones de la beta 0.7.0
 
 El destino es Windows 11 x64. Windows 10 22H2 x64 no está validado: el instalador permite técnicamente el build 19045 o posterior, pero ese umbral no certifica compatibilidad ni pruebas. No se ofrece soporte para x86, ARM64 nativo ni emulación ARM64 en este paquete.
 
@@ -6,7 +6,7 @@ La captura de ventanas protegidas, contenido DRM, escritorio seguro/UAC, sesione
 
 La captura larga une tramos de scroll manual y depende de su solapamiento. Cabeceras fijas, animaciones, contenido repetitivo, cambios de anchura o desplazamientos grandes pueden dificultar la unión. Se rechazan uniones ambiguas y se limita la salida a 60 millones de píxeles y 65.535 filas para controlar el consumo de memoria. El historial de edición también consume memoria; no se promete recuperación perfecta.
 
-Desde 0.5.3 la toma de imágenes continúa mientras se procesa la anterior, con una cola pendiente limitada y una vista previa de frecuencia acotada. Se aceptan solapamientos más cortos cuando se pueden verificar. Esto reduce las pérdidas en scroll rápido, pero no reconstruye partes que nunca aparecieron en pantalla. Si falta una unión, la sesión sigue activa y conserva los tramos aceptados: vuelve hacia arriba hasta recuperar el solapamiento o guarda expresamente sólo lo capturado. La rapidez admisible depende del equipo, el tamaño de la región y el contenido.
+Desde 0.5.3 la toma de imágenes continúa mientras se procesa la anterior, con una cola pendiente limitada. Desde 0.7.0 se elimina la miniatura continua del scroll: se usa un marco sobre la página para dedicar el procesamiento a la captura. Se aceptan solapamientos más cortos cuando se pueden verificar. Esto reduce las pérdidas en scroll rápido, pero no reconstruye partes que nunca aparecieron en pantalla. Si falta una unión, la sesión sigue activa y conserva los tramos aceptados: vuelve hacia arriba hasta recuperar el solapamiento o guarda expresamente sólo lo capturado. La rapidez admisible depende del equipo, el tamaño de la región y el contenido.
 
 Desde 0.6.0, «Capturar más» ofrece desplazamiento guiado por pasos mediante accesibilidad o rueda dirigida a la ventana original. Su disponibilidad depende de la aplicación capturada. Se pausa al cambiar de ventana, perder la unión o no detectar movimiento; comprueba el final antes de guardar. El modo manual admite rueda, trackpad, barra lateral y teclado, pero sigue necesitando solapamiento. No se han certificado todos los dispositivos físicos ni todas las webs.
 

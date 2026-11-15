@@ -9,10 +9,11 @@ using Clipsa;
 internal static class ScrollChecks
 {
     private static readonly BindingFlags Private = BindingFlags.NonPublic | BindingFlags.Instance;
-    public static void RunMatcherOnly() => CheckTextPage();
+    public static void RunMatcherOnly() { CheckTextPage(); CheckSidebars(); }
     public static void Run()
     {
         CheckTextPage();
+        CheckSidebars();
         CheckContinuous();
         CheckContinuous(60, 80, 10);
         CheckAcceptHistory();
@@ -42,6 +43,32 @@ internal static class ScrollChecks
         var jump = ScrollStitcher.Match(ScrollStitcher.Pixels(first), ScrollStitcher.Pixels(fast), 800, 600);
         Require(jump.Kind == ScrollStitcher.MatchKind.Matched && jump.Offset == 520, "fast scroll keeps a short but valid overlap: " + jump);
         Console.WriteLine("Page-like text, white margins and moving scrollbar: OK");
+    }
+    private static void CheckSidebars()
+    {
+        const int width = 600, height = 400;
+        var pixels = new byte[width * 1200 * 4]; new Random(918).NextBytes(pixels);
+        for (var i = 3; i < pixels.Length; i += 4) pixels[i] = 255;
+        using var document = new System.Drawing.Bitmap(width, 1200, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+        var data = document.LockBits(new System.Drawing.Rectangle(0, 0, width, 1200), System.Drawing.Imaging.ImageLockMode.WriteOnly, document.PixelFormat);
+        try { System.Runtime.InteropServices.Marshal.Copy(pixels, 0, data.Scan0, pixels.Length); } finally { document.UnlockBits(data); }
+        foreach (var sides in new[] { (Left: 140, Right: 0), (Left: 0, Right: 140), (Left: 100, Right: 100), (Left: 260, Right: 0) })
+        {
+            using var first = document.Clone(new System.Drawing.Rectangle(0, 0, width, height), document.PixelFormat);
+            using var next = document.Clone(new System.Drawing.Rectangle(0, 73, width, height), document.PixelFormat);
+            using var unrelated = document.Clone(new System.Drawing.Rectangle(0, 700, width, height), document.PixelFormat);
+            foreach (var image in new[] { first, next, unrelated })
+            {
+                using var graphics = System.Drawing.Graphics.FromImage(image);
+                if (sides.Left > 0) graphics.DrawImage(document, new System.Drawing.Rectangle(0, 0, sides.Left, height), new System.Drawing.Rectangle(0, 0, sides.Left, height), System.Drawing.GraphicsUnit.Pixel);
+                if (sides.Right > 0) graphics.DrawImage(document, new System.Drawing.Rectangle(width - sides.Right, 0, sides.Right, height), new System.Drawing.Rectangle(width - sides.Right, 0, sides.Right, height), System.Drawing.GraphicsUnit.Pixel);
+            }
+            var match = ScrollStitcher.Match(ScrollStitcher.Pixels(first), ScrollStitcher.Pixels(next), width, height);
+            Require(match.Kind == ScrollStitcher.MatchKind.Matched && match.Offset == 73, $"scroll with fixed sidebars {sides}: {match}");
+            var rejected = ScrollStitcher.Match(ScrollStitcher.Pixels(first), ScrollStitcher.Pixels(unrelated), width, height);
+            Require(rejected.Kind is ScrollStitcher.MatchKind.NoOverlap or ScrollStitcher.MatchKind.Ambiguous, "stationary sidebars cannot join unrelated content");
+        }
+        Console.WriteLine("Fixed left/right sidebars: moving content joins, unrelated views remain rejected: OK");
     }
     private static string GuidFromRandom(Random random) => new string(Enumerable.Range(0, random.Next(3, 9)).Select(_ => (char)('a' + random.Next(26))).ToArray());
     internal static void Pump(int milliseconds)

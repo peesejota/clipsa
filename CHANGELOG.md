@@ -1,5 +1,14 @@
 # Cambios
 
+## 0.7.0 · beta · 15 de noviembre de 2026
+
+- Captura con scroll manteniendo el botón: dibuja el área y empieza a desplazar con rueda/trackpad o flechas antes de soltar; el primer movimiento fija la selección y soltar termina la captura.
+- La primera vista se guarda antes de cerrar el selector, cuando Windows permite excluirlo de la captura, para conservar el comienzo durante el cambio de ventanas.
+- Marco sobre la página que deja pasar la entrada y queda excluido de la imagen; controles compactos fuera del área cuando hay espacio, sin ventana de previsualización ni generación continua de miniaturas.
+- Reconocimiento con regiones centrales amplias para tolerar laterales fijos, conservando la verificación de contenido y el rechazo de desplazamientos ambiguos o sin solapamiento.
+- Las uniones fallidas transitorias no muestran inmediatamente el aviso; el marco indica cuándo hace falta recuperar una unión. Si al terminar falta el último tramo, permanece abierta para recuperarlo o guardar parcialmente con confirmación.
+- Se conservan el modo de área fija y el guiado, así como Escape/clic derecho para cancelar.
+
 ## 0.6.2 · beta · 15 de noviembre de 2026
 
 - Corrige la orientación al colocar la barra arriba, abajo o en las esquinas: siempre horizontal, incluso con una preferencia vertical guardada. Los laterales siguen siendo verticales.

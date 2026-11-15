@@ -1,5 +1,7 @@
 # Privacidad y datos locales
 
+Desde 0.7.0, el gesto de scroll mantenido consulta únicamente si el botón izquierdo sigue pulsado durante esa sesión. El primer movimiento de rueda o flecha consumido por la selección se reenvía a la ventana elegida después de guardar la primera vista; el resto llega directamente a la aplicación. No se registra un historial de teclas ni del puntero. El marco es sólo una guía visual y no recibe la entrada de la página.
+
 Desde 0.6.0, **Capturar más** identifica un control desplazable con la interfaz de accesibilidad de Windows y lo mueve, o envía mensajes de rueda a la ventana seleccionada. No guarda texto ni el árbol de accesibilidad. Sólo se activa por decisión del usuario durante la captura, permite pausar/cancelar y se detiene al cambiar la ventana activa. El modo manual deja que la página reciba sus entradas normales. La ocultación comprueba localmente la posición del ratón y no conserva un historial.
 
 
