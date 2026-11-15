@@ -6,6 +6,8 @@ Paquetes del [run 43759396999](https://github.com/peesejota/clipsa/actions/runs/
 
 Se reprodujo el falso «sin solapamiento» con contenido desplazable y un lateral fijo de 260 px sobre una selección de 600 px. Tras añadir comprobación central, las cuatro variantes de laterales pasan con desplazamiento correcto y las vistas sin contenido común siguen rechazadas. La prueba se ejecuta también en CI con `--scroll-match-only`.
 
+El comprobador `--public-channel-only` obtuvo 0.7.0 desde el canal predeterminado de la app y verificó firma de manifiesto y SHA256 de ambas descargas públicas: instalador 53.739.599 bytes y portable 76.402.620 bytes. Se descargaron sólo en memoria, sin guardar ni ejecutar el código descargado.
+
 Pruebas locales `--held-scroll-only` y `--held-key-only`: selección real manteniendo el botón izquierdo, inicio mediante rueda o flecha, recepción de ambas entradas en otro proceso de QA y guardado al soltar, sin pulsar Terminar. Resultado 350 × 380 px, altura completa y primeras filas conservadas. Se contrastó la primera vista entera contra una captura previa para excluir contaminación del marco/controles; el marco permanece visible, deja pasar la entrada a la ventana original y se cierra al terminar. `--held-cancel-only` confirma Escape sin PNG ni marco residual.
 
 Se repitieron esas tres pruebas después de guardar la primera vista con el selector aún abierto y excluido, antes del cambio a los controles de scroll. La prueba sigue contrastando la totalidad de los píxeles iniciales, incluida la ausencia de tinte y líneas de selección.
