@@ -1,5 +1,13 @@
 # Validación de Clipsa
 
+## Revisión 0.6.1 · 15 de noviembre de 2026
+
+Compilación local sin advertencias ni errores. Pasaron las pruebas completas de edición, recorte y teclado real, transparencia independiente, iconos, arrastre y scroll controlado. El scroll continuo pasó 15 desplazamientos de 16 DIP cada 90 ms (250 × 525 px) y diez de 80 DIP cada 60 ms (250 × 1225 px), conservando las primeras filas y el historial después de saltos rechazados e inversión de sentido.
+
+La prueba de guiado usa una ventana de otro proceso: rueda y flecha abajo reales, guiado, parada y finalización, comprobando la altura contra el desplazamiento y las primeras filas contra el inicio. Se añadió un proveedor de accesibilidad de QA con movimiento animado en pasos de 2 DIP cada 16 ms, a escala 125 %: pasó con salida de 350 × 521 px, incluida comprobación de que el movimiento terminó antes de cerrar. Esto no certifica físicamente todos los trackpads ni todas las aplicaciones.
+
+La prueba de barra verifica los nueve anclajes con ambas orientaciones, posición real del HWND, cabecera en el borde correspondiente, espera de entrada y salida en cuatro bordes, persistencia de ambos retardos y sliders cargados. El selector de pantalla de barra se oculta cuando sólo hay un monitor. Pasaron también las acciones de miniatura lateral y la cancelación con Escape/clic derecho sin PNG residual.
+
 ## Revisión 0.6.0 · 15 de noviembre de 2026
 
 Los paquetes finales proceden del [run 43750130498](https://github.com/peesejota/clipsa/actions/runs/43750130498), commit `f896d14806eb2232c05117df468c96d78ca570d8`. Pasaron geometría, actualizador, atajos y matcher en CI, instalación/reinstalación/desinstalación conservando datos, bloqueo de instancia y portable extraída. También pasaron localmente las baterías completas, cancelación, scroll manual, scroll guiado y acciones compactas horizontales y laterales.

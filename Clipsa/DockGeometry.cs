@@ -13,11 +13,13 @@ public static class DockGeometry
         var py = position switch { "Top" or "TopLeft" or "TopRight" => 0, "Bottom" or "BottomLeft" or "BottomRight" => dy, "Custom" => (int)Math.Round(dy * Math.Clamp(y, 0, 1)), _ => dy / 2 };
         return new(work.Left + px, work.Top + py, width, height);
     }
-    public static string Edge(string position, Rectangle full, Rectangle work)
+    public static string Edge(string position, Rectangle full, Rectangle work, bool? vertical = null)
     {
         if (position.StartsWith("Top", StringComparison.Ordinal)) return "Top";
         if (position.StartsWith("Bottom", StringComparison.Ordinal)) return "Bottom";
         if (position is "Left" or "Right") return position;
+        if (vertical is true) return Math.Abs(full.Left - work.Left) <= Math.Abs(work.Right - full.Right) ? "Left" : "Right";
+        if (vertical is false) return Math.Abs(full.Top - work.Top) <= Math.Abs(work.Bottom - full.Bottom) ? "Top" : "Bottom";
         return new[] { ("Top", Math.Abs(full.Top - work.Top)), ("Bottom", Math.Abs(work.Bottom - full.Bottom)), ("Left", Math.Abs(full.Left - work.Left)), ("Right", Math.Abs(work.Right - full.Right)) }.MinBy(p => p.Item2).Item1;
     }
     public static Rectangle Tab(Rectangle full, Rectangle work, string edge, int thickness, int length)

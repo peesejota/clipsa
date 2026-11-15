@@ -35,16 +35,41 @@ public partial class MainWindow
     private void ApplyDockLayout()
     {
         var vertical = SideDock; var smallSide = vertical && collapsed;
+        var screen = MonitorService.Resolve(settings.PanelMonitor.Length > 0 ? settings.PanelMonitor : panelMonitor.Length > 0 ? panelMonitor : settings.CaptureMonitor);
+        var edge = DockGeometry.Edge(settings.PanelPlacement, fullDockBounds, screen.WorkingArea, SideDock);
+        var sideHeader = vertical && !collapsed && edge is "Left" or "Right";
+        // Move the header to the attached edge, keeping images and their actions upright.
+        var reverse = edge is "Bottom" or "Right";
+        ShelfLayout.ColumnDefinitions.Clear();
+        if (sideHeader)
+        {
+            foreach (var length in reverse ? new[] { new GridLength(1, GridUnitType.Star), new GridLength(16), new GridLength(30) } : new[] { new GridLength(30), new GridLength(16), new GridLength(1, GridUnitType.Star) })
+                ShelfLayout.ColumnDefinitions.Add(new ColumnDefinition { Width = length });
+        }
+        for (var i = 0; i < 3; i++) ShelfLayout.RowDefinitions[i].Height = sideHeader || smallSide
+            ? new GridLength(i == 0 ? 1 : 0, i == 0 ? GridUnitType.Star : GridUnitType.Pixel)
+            : new GridLength(i == (reverse ? 0 : 2) ? 1 : i == 1 ? (collapsed ? 0 : 22) : 30, i == (reverse ? 0 : 2) ? GridUnitType.Star : GridUnitType.Pixel);
+        Grid.SetRow(MainHeader, sideHeader || smallSide ? 0 : reverse ? 2 : 0);
+        Grid.SetColumn(MainHeader, sideHeader && reverse ? 2 : 0);
+        Grid.SetRow(CardsScroll, sideHeader ? 0 : reverse ? 0 : 2);
+        Grid.SetColumn(CardsScroll, sideHeader && !reverse ? 2 : 0);
+        Grid.SetRow(RopeRow, sideHeader ? 0 : 1); Grid.SetColumn(RopeRow, sideHeader ? 1 : 0);
+        Grid.SetRow(SideCompactPanel, 0);
+        MainHeader.LayoutTransform = sideHeader ? new System.Windows.Media.RotateTransform(edge == "Right" ? 90 : -90) : System.Windows.Media.Transform.Identity;
+        RopeRow.Margin = new Thickness(0);
+        RopeLine.Width = sideHeader ? 1 : double.NaN; RopeLine.Height = sideHeader ? double.NaN : 1;
+        RopeLine.HorizontalAlignment = sideHeader ? System.Windows.HorizontalAlignment.Center : System.Windows.HorizontalAlignment.Stretch;
+        RopeLine.VerticalAlignment = sideHeader ? VerticalAlignment.Stretch : VerticalAlignment.Center;
+        var corners = edge switch { "Bottom" => new CornerRadius(28, 28, 0, 0), "Left" => new CornerRadius(0, 28, 28, 0), "Right" => new CornerRadius(28, 0, 0, 28), _ => new CornerRadius(0, 0, 28, 28) };
+        RootBorder.CornerRadius = GlassBackground.CornerRadius = corners;
         MainHeader.Visibility = smallSide ? Visibility.Collapsed : Visibility.Visible;
         SideCompactPanel.Visibility = smallSide ? Visibility.Visible : Visibility.Collapsed;
         CompactScroll.Visibility = collapsed && !vertical ? Visibility.Visible : Visibility.Collapsed;
         BrandTitle.Visibility = !collapsed ? Visibility.Visible : Visibility.Collapsed;
         CardsScroll.Visibility = collapsed ? Visibility.Collapsed : Visibility.Visible;
         RopeRow.Visibility = collapsed ? Visibility.Collapsed : Visibility.Visible;
-        ShelfLayout.RowDefinitions[0].Height = new GridLength(smallSide ? 0 : 30);
-        ShelfLayout.RowDefinitions[1].Height = new GridLength(collapsed ? 0 : 22);
-        MainHeader.ColumnDefinitions[0].Width = new GridLength(vertical ? 0 : 120);
-        MainHeader.ColumnDefinitions[2].Width = new GridLength(vertical ? 90 : 120);
+        MainHeader.ColumnDefinitions[0].Width = new GridLength(vertical && !sideHeader ? 0 : 120);
+        MainHeader.ColumnDefinitions[2].Width = new GridLength(vertical && !sideHeader ? 90 : 120);
         RootBorder.Padding = smallSide ? new Thickness(4) : collapsed ? new Thickness(24, 5, 24, 5) : vertical ? new Thickness(12) : new Thickness(24, 12, 24, 20);
         if (lastDockVertical != vertical)
         {
@@ -54,7 +79,7 @@ public partial class MainWindow
         }
         CardsScroll.HorizontalScrollBarVisibility = vertical ? ScrollBarVisibility.Disabled : ScrollBarVisibility.Hidden;
         CardsScroll.VerticalScrollBarVisibility = vertical ? ScrollBarVisibility.Auto : ScrollBarVisibility.Disabled;
-        CollapseButton.Content = collapsed ? "⌄" : "⌃";
+        CollapseButton.Content = edge switch { "Bottom" => collapsed ? "⌃" : "⌄", "Left" => collapsed ? "›" : "‹", "Right" => collapsed ? "‹" : "›", _ => collapsed ? "⌄" : "⌃" };
         RootBorder.Visibility = autoHidden ? Visibility.Collapsed : Visibility.Visible;
         AutoHideHandle.Visibility = autoHidden ? Visibility.Visible : Visibility.Collapsed;
         GlassBackground.Visibility = autoHidden ? Visibility.Collapsed : Visibility.Visible;
@@ -64,11 +89,11 @@ public partial class MainWindow
         CloseCompactActions();
         var device = settings.PanelMonitor.Length > 0 ? settings.PanelMonitor : panelMonitor.Length > 0 ? panelMonitor : settings.CaptureMonitor;
         var screen = MonitorService.Resolve(device); var dpi = MonitorService.DpiScale(screen); var work = screen.WorkingArea;
-        ApplyDockLayout();
         var w = SideDock ? (collapsed ? 56 : 260) : 1100;
         var h = SideDock ? (collapsed ? Math.Min(560, Math.Max(150, store.Items.Count * 32 + 110)) : 760) : collapsed ? 44 : 276;
         fullDockBounds = DockGeometry.Place(work, (int)Math.Round(w * settings.PanelScale * dpi.X), (int)Math.Round(h * settings.PanelScale * dpi.Y), settings.PanelPlacement, settings.PanelX, settings.PanelY);
-        var edge = DockGeometry.Edge(settings.PanelPlacement, fullDockBounds, work);
+        ApplyDockLayout();
+        var edge = DockGeometry.Edge(settings.PanelPlacement, fullDockBounds, work, SideDock);
         hiddenDockBounds = DockGeometry.Tab(fullDockBounds, work, edge, (int)Math.Round(6 * dpi.X), (int)Math.Round(90 * dpi.Y));
         var bounds = autoHidden ? hiddenDockBounds : fullDockBounds;
         MinWidth = autoHidden ? 1 : SideDock && collapsed ? 40 : Math.Min(240, work.Width / dpi.X);
@@ -84,7 +109,7 @@ public partial class MainWindow
         {
             var hot = hiddenDockBounds; hot.Inflate(7, 7);
             var screen = Forms.Screen.FromRectangle(fullDockBounds); var physical = screen.Bounds;
-            var edge = DockGeometry.Edge(settings.PanelPlacement, fullDockBounds, screen.WorkingArea);
+            var edge = DockGeometry.Edge(settings.PanelPlacement, fullDockBounds, screen.WorkingArea, SideDock);
             var edgeHit = physical.Contains(point) && (edge switch
             {
                 "Top" => point.Y <= physical.Top + 3 && point.X >= hot.Left && point.X <= hot.Right,
@@ -101,7 +126,7 @@ public partial class MainWindow
             var hot = fullDockBounds; hot.Inflate(14, 14);
             if (hot.Contains(point) || CompactActionsPopup.IsOpen) { dockLeft = 0; return; }
             if (dockLeft == 0) dockLeft = now;
-            if (now - dockLeft >= 800) { autoHidden = true; dockLeft = 0; PlaceDock(); }
+            if (now - dockLeft >= settings.EdgeHideDelay) { autoHidden = true; dockLeft = 0; PlaceDock(); }
         }
     }
     private void RevealDock() { autoHidden = false; edgeEntered = dockLeft = 0; Show(); PositionPanel(); }

@@ -31,6 +31,7 @@ public sealed class AppSettings
     public bool PanelCollapsed { get; set; }
     public bool AutoHideCollapsed { get; set; }
     public int EdgeRevealDelay { get; set; } = 350;
+    public int EdgeHideDelay { get; set; } = 800;
     public int GlassOpacity { get; set; } = 68;
     public string SaveFolder { get; set; } = AppPaths.IsPortable ? "." : AppPaths.DefaultSaveFolder;
     public bool KeepInTray { get; set; } = true;
@@ -78,6 +79,7 @@ public static class SettingsStore
         value.PanelX = double.IsFinite(value.PanelX) ? Math.Clamp(value.PanelX, 0, 1) : .5;
         value.PanelY = double.IsFinite(value.PanelY) ? Math.Clamp(value.PanelY, 0, 1) : 0;
         value.EdgeRevealDelay = Math.Clamp(value.EdgeRevealDelay, 150, 1500);
+        value.EdgeHideDelay = Math.Clamp(value.EdgeHideDelay, 200, 5000);
         value.GlassOpacity = Math.Clamp(value.GlassOpacity, 0, 100);
         value.ScrollDelay = Math.Clamp(value.ScrollDelay, 100, 400);
         value.CaptureMonitor ??= ""; value.UpdateFeedUrl ??= "";

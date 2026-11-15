@@ -24,17 +24,20 @@ public partial class SettingsWindow : Window
         InitializeComponent(); original = value; settings = JsonSerializer.Deserialize<AppSettings>(JsonSerializer.Serialize(value))!;
         MonitorBox.DisplayMemberPath = "Label"; MonitorBox.SelectedValuePath = "Device";
         MonitorBox.Items.Add(new MonitorChoice("", "Automático · pantalla donde está el ratón"));
-        foreach (var screen in Forms.Screen.AllScreens) MonitorBox.Items.Add(new MonitorChoice(screen.DeviceName, screen.DeviceName + (screen.Primary ? " · principal" : "") + " · " + screen.Bounds.Width + " × " + screen.Bounds.Height));
+        var screens = Forms.Screen.AllScreens;
+        for (var i = 0; i < screens.Length; i++) MonitorBox.Items.Add(new MonitorChoice(screens[i].DeviceName, MonitorLabel(screens[i], i)));
         DockPositionBox.DisplayMemberPath = "Label"; DockPositionBox.SelectedValuePath = "Value";
         var labels = new[] { "Arriba · centro", "Abajo · centro", "Lateral izquierdo", "Lateral derecho", "Esquina superior izquierda", "Esquina superior derecha", "Esquina inferior izquierda", "Esquina inferior derecha", "Posición libre" };
         for (var i = 0; i < DockGeometry.Positions.Length; i++) DockPositionBox.Items.Add(new DockChoice(DockGeometry.Positions[i], labels[i]));
         DockMonitorBox.DisplayMemberPath = "Label"; DockMonitorBox.SelectedValuePath = "Device";
-        DockMonitorBox.Items.Add(new MonitorChoice("", "Monitor automático"));
-        foreach (var screen in Forms.Screen.AllScreens) DockMonitorBox.Items.Add(new MonitorChoice(screen.DeviceName, screen.DeviceName + (screen.Primary ? " · principal" : "")));
+        DockMonitorBox.Items.Add(new MonitorChoice("", "Automática · conservar la pantalla de la barra"));
+        for (var i = 0; i < screens.Length; i++) DockMonitorBox.Items.Add(new MonitorChoice(screens[i].DeviceName, MonitorLabel(screens[i], i)));
+        DockMonitorSection.Visibility = screens.Length > 1 ? Visibility.Visible : Visibility.Collapsed;
         Refresh();
         Closed += (_, _) => { updateCancellation.Cancel(); CancelRecording(); };
     }
 
+    private static string MonitorLabel(Forms.Screen screen, int index) => $"Pantalla {index + 1}{(screen.Primary ? " · principal" : "")} · {screen.Bounds.Width} × {screen.Bounds.Height}";
     private void Refresh()
     {
         FullButton.Content = settings.Full.Display; RegionButton.Content = settings.Region.Display; ScrollButton.Content = settings.Scroll.Display;
@@ -47,7 +50,7 @@ public partial class SettingsWindow : Window
         DockVerticalBox.IsChecked = settings.PanelVertical;
         if (DockMonitorBox.SelectedIndex < 0) DockMonitorBox.SelectedIndex = 0;
         DockXSlider.Value = settings.PanelX * 100; DockYSlider.Value = settings.PanelY * 100;
-        DockHideBox.IsChecked = settings.AutoHideCollapsed; DockDelayBox.Text = settings.EdgeRevealDelay.ToString();
+        DockHideBox.IsChecked = settings.AutoHideCollapsed; DockDelaySlider.Value = settings.EdgeRevealDelay; DockHideDelaySlider.Value = settings.EdgeHideDelay;
         ModeText.Text = "Clipsa " + UpdateService.CurrentVersion.ToString(3) + (AppPaths.IsPortable ? " · Portable" : " · Instalada");
         StorageText.Text = AppPaths.DataDirectory;
     }
@@ -116,13 +119,11 @@ public partial class SettingsWindow : Window
         if (!int.TryParse(DelayBox.Text, out var delay) || delay < 100 || delay > 400 || !double.TryParse(ScaleBox.Text, out var scale) || scale < 70 || scale > 140)
         { System.Windows.MessageBox.Show(this, "El intervalo debe estar entre 100 y 400 ms y el tamaño entre 70 y 140 %.", "Clipsa"); return; }
         settings.ScrollDelay = delay; settings.PanelScale = scale / 100; settings.GlassOpacity = (int)GlassSlider.Value;
-        if (!int.TryParse(DockDelayBox.Text, out var revealDelay) || revealDelay < 150 || revealDelay > 1500)
-        { System.Windows.MessageBox.Show(this, "La espera del borde debe estar entre 150 y 1500 ms.", "Clipsa"); return; }
         settings.PanelPlacement = (DockPositionBox.SelectedItem as DockChoice)?.Value ?? "Top";
         settings.PanelVertical = DockVerticalBox.IsChecked == true;
         settings.PanelMonitor = (DockMonitorBox.SelectedItem as MonitorChoice)?.Device ?? "";
         settings.PanelX = DockXSlider.Value / 100; settings.PanelY = DockYSlider.Value / 100;
-        settings.AutoHideCollapsed = DockHideBox.IsChecked == true; settings.EdgeRevealDelay = revealDelay;
+        settings.AutoHideCollapsed = DockHideBox.IsChecked == true; settings.EdgeRevealDelay = (int)DockDelaySlider.Value; settings.EdgeHideDelay = (int)DockHideDelaySlider.Value;
         settings.UpdateFeedUrl = UpdateFeedBox.Text.Trim();
         try { if (settings.UpdateFeedUrl.Length > 0) _ = UpdateService.ResolveFeed(settings.UpdateFeedUrl); }
         catch (ArgumentException ex) { System.Windows.MessageBox.Show(this, ex.Message, "Clipsa"); return; }
@@ -148,7 +149,7 @@ public partial class SettingsWindow : Window
             original.PanelPlacement = settings.PanelPlacement; original.PanelMonitor = settings.PanelMonitor;
             original.PanelVertical = settings.PanelVertical;
             original.PanelX = settings.PanelX; original.PanelY = settings.PanelY;
-            original.AutoHideCollapsed = settings.AutoHideCollapsed; original.EdgeRevealDelay = settings.EdgeRevealDelay;
+            original.AutoHideCollapsed = settings.AutoHideCollapsed; original.EdgeRevealDelay = settings.EdgeRevealDelay; original.EdgeHideDelay = settings.EdgeHideDelay;
             DialogResult = true;
         }
         catch (Exception ex) { AppDiagnostics.Log(ex, "Guardar ajustes"); System.Windows.MessageBox.Show(this, "No se pudieron guardar los ajustes: " + ex.Message, "Clipsa"); }

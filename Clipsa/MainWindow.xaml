@@ -24,7 +24,7 @@
                 </ScrollViewer>
                 <StackPanel Grid.Column="2" Orientation="Horizontal" HorizontalAlignment="Right"><Button Content="⚙" Click="Settings_Click" ToolTip="Configurar Clipsa" Width="28" Background="Transparent" Foreground="{StaticResource Muted}" BorderThickness="0"/><Button x:Name="CollapseButton" Content="⌃" Click="Collapse_Click" ToolTip="Encoger o extender" Width="28" Background="Transparent" Foreground="{StaticResource Muted}" BorderThickness="0"/><Button Content="×" Click="ClosePanel_Click" ToolTip="Ocultar Clipsa" Width="28" Background="Transparent" Foreground="{StaticResource Muted}" BorderThickness="0" FontSize="18"/></StackPanel>
             </Grid>
-            <Grid x:Name="RopeRow" Grid.Row="1" Margin="0,3,0,0"><Border Height="1" Background="#D8D5E6" VerticalAlignment="Center"/></Grid>
+            <Grid x:Name="RopeRow" Grid.Row="1" Margin="0,3,0,0"><Border x:Name="RopeLine" Height="1" Background="#D8D5E6" VerticalAlignment="Center"/></Grid>
             <ScrollViewer x:Name="CardsScroll" Grid.Row="2" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled" PreviewMouseWheel="HorizontalWheel">
                 <ItemsControl x:Name="Cards" HorizontalAlignment="Center" HorizontalContentAlignment="Center">
                     <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" HorizontalAlignment="Center"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>

@@ -63,7 +63,7 @@ public static class ScrollStitcher
         for (var offset = -maximum; offset <= maximum; offset++)
         {
             if ((offset & 31) == 0) cancellationToken.ThrowIfCancellationRequested();
-            var error = Score(previous, current, width, height, offset, top, bottom, 12);
+            var error = Score(previous, current, width, height, offset, top, bottom, 12, 6);
             errors[offset + maximum] = error;
             if (error < bestError) { bestError = error; best = offset; }
         }
@@ -181,12 +181,13 @@ public static class ScrollStitcher
         return sum / 384;
     }
 
-    private static double Score(byte[] a, byte[] b, int width, int height, int offset, int top, int bottom, int samples)
+    private static double Score(byte[] a, byte[] b, int width, int height, int offset, int top, int bottom, int samples, double cutoff = double.PositiveInfinity)
     {
         var first = top + Math.Max(0, -offset);
         var overlap = height - bottom - Math.Max(0, offset) - first;
         if (overlap <= 0) return double.PositiveInfinity;
         double error = 0;
+        var budget = cutoff * samples * samples * 3;
         for (var row = 1; row <= samples; row++)
         {
             var y = first + row * overlap / (samples + 1);
@@ -197,6 +198,9 @@ public static class ScrollStitcher
                 var j = (y * width + x) * 4;
                 for (var channel = 0; channel < 3; channel++) error += Math.Abs(a[i + channel] - b[j + channel]);
             }
+            // The remaining nonnegative terms cannot bring this candidate back
+            // below the acceptance/ambiguity threshold. Keep all viable scores exact.
+            if (error > budget) return cutoff + 1;
         }
         return error / (samples * samples * 3);
     }

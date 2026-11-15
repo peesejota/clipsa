@@ -1,5 +1,14 @@
 # Cambios
 
+## 0.6.1 · beta · 15 de noviembre de 2026
+
+- Cabecera, separador y esquinas de la barra adaptados al borde superior, inferior o lateral; las capturas mantienen su orientación.
+- Deslizadores independientes para mostrar al mantener el ratón (150–1500 ms) y ocultar al alejarlo (200–5000 ms), con instrucciones para activar la ocultación al encoger.
+- Nombres de pantalla legibles; selector de pantalla de la barra sólo con varios monitores y explicación de su función.
+- Scroll manual con muestreo de 16–20 ms, sin desplazar el pintado de la aplicación; descarte temprano de candidatos incompatibles manteniendo las comprobaciones de ambigüedad.
+- Guiado que captura durante la animación y espera tres muestras estables antes de avanzar, en lugar de pausas fijas. Reintenta uniones transitorias antes de pausar y detecta antes el final comunicado por accesibilidad.
+- Referencia de unión estable para evitar que se acumulen errores de un píxel en movimientos pequeños con escala fraccionaria; al terminar el guiado se espera y captura el resto de la animación.
+
 ## 0.6.0 · beta · 15 de noviembre de 2026
 
 - Scroll guiado **Capturar más / Parar scroll**: pasos cortos, comprobación de cada unión y espera del último movimiento antes de guardar; accesibilidad Windows y rueda dirigida como alternativa.

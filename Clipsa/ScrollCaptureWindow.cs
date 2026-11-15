@@ -50,6 +50,8 @@ internal sealed class ScrollCaptureWindow : Window
     private readonly TextBlock status = new() { Foreground = WpfBrushes.White, Margin = new Thickness(8), TextWrapping = TextWrapping.Wrap };
     private readonly System.Windows.Controls.Image preview = new() { Width = 180, Height = 90, Stretch = System.Windows.Media.Stretch.Uniform, HorizontalAlignment = HorizontalAlignment.Left, Margin = new Thickness(8, 0, 8, 4) };
     private byte[]? previous;
+    private byte[]? anchor;
+    private int anchorPosition;
     private Bitmap? header, footer;
     private int position, minimum, maximum, fixedTop, fixedBottom;
     private bool bodyInitialized, processing, finishing, finished, sizeLimitReached;
@@ -90,7 +92,7 @@ internal sealed class ScrollCaptureWindow : Window
         // The old three-stable-sample gate skipped the entire gesture during continuous scroll.
         // Keep screen sampling independent of matching so short intermediate
         // views are retained while the previous pair is being processed.
-        timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(Math.Clamp(delay / 10, 16, 40)) };
+        timer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(Math.Clamp(delay / 20, 16, 20)) };
         timer.Tick += (_, _) => Tick();
         var controlsReady = false;
         status.Text = "Preparando captura…";
@@ -192,27 +194,30 @@ internal sealed class ScrollCaptureWindow : Window
                 if (!TargetUnmoved()) break;
                 await Task.Run(driver.Step, token).WaitAsync(TimeSpan.FromSeconds(2));
                 var moved = false;
-                // Let smooth scrolling render. No further wheel input is sent
-                // until the current view has been checked against the last one.
-                for (var attempt = 0; attempt < 6; attempt++)
+                byte[]? lastSample = null;
+                var stable = 0;
+                // Sample the whole animation rather than sleeping through its middle.
+                // Three stable samples release the next step; slower applications get
+                // up to one second. A transient animation does not abort a valid join.
+                for (var attempt = 0; attempt < 40; attempt++)
                 {
-                    await Task.Delay(70, token);
+                    await Task.Delay(24, token);
+                    if (!TargetUnmoved()) return;
                     using var frame = Capture();
                     var pixels = await Task.Run(() => ScrollStitcher.Pixels(frame), token);
+                    stable = lastSample is not null && ScrollStitcher.Difference(lastSample, pixels, frame.Width, frame.Height) <= .5 ? stable + 1 : 0;
+                    lastSample = pixels;
                     if (previous is not null && ScrollStitcher.Difference(previous, pixels, frame.Width, frame.Height) > .5)
                     {
-                        if (!await Accept(frame, pixels, token))
-                        { status.Text = "El modo guiado se ha pausado para no perder un tramo. Vuelve un poco arriba o amplía la zona y reanuda."; return; }
-                        moved = true;
-                        // Capture the remainder of a smooth step before sending another.
-                        await Task.Delay(150, token);
-                        using var settled = Capture();
-                        if (!await Accept(settled, ScrollStitcher.Pixels(settled), token)) return;
-                        break;
+                        var before = position;
+                        if (await Accept(frame, pixels, token)) moved |= position != before;
                     }
+                    if (sizeLimitReached) return;
+                    if (stable >= 3 && (moved || attempt >= 11)) break;
                 }
+                if (gapDetected) { status.Text = "Scroll guiado pausado para conservar la continuidad. Vuelve un poco arriba hasta recuperar la unión y reanuda."; return; }
                 unchanged = moved ? 0 : unchanged + 1;
-                if (unchanged >= 8) { status.Text = driver.AtEnd ? "Final de página alcanzado. Pulsa Terminar y guardar." : "La página no responde al guiado o no avanza más. Comprueba el final o continúa manualmente antes de guardar."; break; }
+                if (unchanged >= (driver.AtEnd ? 2 : 4)) { status.Text = driver.AtEnd ? "Final de página alcanzado. Pulsa Terminar y guardar." : "La página no responde al guiado o no avanza más. Comprueba el final o continúa manualmente antes de guardar."; break; }
             }
         }
         catch (OperationCanceledException) { }
@@ -291,13 +296,23 @@ internal sealed class ScrollCaptureWindow : Window
         }
         if (ScrollStitcher.Difference(previous, pixels, frame.Width, frame.Height) <= .5)
         { if (gapDetected) { gapDetected = false; status.Text = "Unión recuperada. Puedes continuar o usar Capturar más."; } return true; }
-        var old = previous;
+        var old = anchor ?? previous;
+        var referencePosition = anchor is null ? position : anchorPosition;
         var top = bodyInitialized ? fixedTop : -1;
         var bottom = bodyInitialized ? fixedBottom : -1;
         var match = await Task.Run(() => ScrollStitcher.Match(old, pixels, frame.Width, frame.Height, token, top, bottom), token);
+        if (match.Kind is ScrollStitcher.MatchKind.NoOverlap or ScrollStitcher.MatchKind.Ambiguous && !ReferenceEquals(old, previous))
+        {
+            old = previous; referencePosition = position;
+            match = await Task.Run(() => ScrollStitcher.Match(old, pixels, frame.Width, frame.Height, token, top, bottom), token);
+        }
         token.ThrowIfCancellationRequested();
         if (finished) return false;
-        if (match.Kind == ScrollStitcher.MatchKind.Unchanged) return true;
+        if (match.Kind == ScrollStitcher.MatchKind.Unchanged)
+        {
+            if (referencePosition == position) return true;
+            match = new(ScrollStitcher.MatchKind.Matched, 0, fixedTop, fixedBottom, 0);
+        }
         if (match.Kind != ScrollStitcher.MatchKind.Matched)
         {
             gapDetected = true;
@@ -324,7 +339,7 @@ internal sealed class ScrollCaptureWindow : Window
             maximum = body!.Height; bodyInitialized = true;
         }
         var bodyHeight = region.Height - fixedTop - fixedBottom;
-        var next = checked(position + match.Offset);
+        var next = checked(referencePosition + match.Offset);
         var newMin = Math.Min(minimum, next);
         var newMax = Math.Max(maximum, checked(next + bodyHeight));
         var outputHeight = (long)newMax - newMin + fixedTop + fixedBottom;
@@ -346,6 +361,10 @@ internal sealed class ScrollCaptureWindow : Window
             frames.Add((frame.Clone(new Rectangle(0, fixedTop + bodyHeight - count, region.Width, count), PixelFormat.Format32bppArgb), maximum));
         }
         minimum = newMin; maximum = newMax; position = next; previous = pixels;
+        // A stable reference prevents ±1 pixel rounding errors accumulating across
+        // hundreds of tiny smooth-scroll frames at fractional display scales.
+        if (anchor is null || Math.Abs((long)next - anchorPosition) >= Math.Max(1, bodyHeight / 3))
+        { anchor = pixels; anchorPosition = next; }
         UpdatePreview();
         status.Text = $"{frames.Count} tramos · {region.Width} × {outputHeight} px. Sigue desplazando o pulsa Terminar.";
         return true;
@@ -354,7 +373,7 @@ internal sealed class ScrollCaptureWindow : Window
     private void InitializeFirstFrame(Bitmap frame, byte[] pixels)
     {
         if (previous is not null) throw new InvalidOperationException("Scroll baseline already initialized.");
-        frames.Add((new Bitmap(frame), 0)); previous = pixels; maximum = frame.Height;
+        frames.Add((new Bitmap(frame), 0)); previous = anchor = pixels; anchorPosition = 0; maximum = frame.Height;
         UpdatePreview(true);
     }
     private void UpdatePreview(bool force = false)
@@ -384,7 +403,21 @@ internal sealed class ScrollCaptureWindow : Window
         try
         {
             guidedCancellation?.Cancel();
-            if (guidedTask is not null) { await guidedTask; await Task.Delay(150, cancellation.Token); Native.DwmFlush(); }
+            if (guidedTask is not null)
+            {
+                await guidedTask;
+                byte[]? last = null; var stable = 0;
+                for (var attempt = 0; attempt < 40 && stable < 3; attempt++)
+                {
+                    await Task.Delay(24, cancellation.Token); Native.DwmFlush();
+                    if (!TargetUnmoved()) { timer.Start(); return; }
+                    using var settling = Capture(); var pixels = ScrollStitcher.Pixels(settling);
+                    stable = last is not null && ScrollStitcher.Difference(last, pixels, region.Width, region.Height) <= .5 ? stable + 1 : 0;
+                    last = pixels;
+                    await Accept(settling, pixels, cancellation.Token);
+                    if (sizeLimitReached) break;
+                }
+            }
             while (processing) await Task.Delay(20, cancellation.Token);
             cancellation.Token.ThrowIfCancellationRequested();
             if (!sizeLimitReached && includeFinal)

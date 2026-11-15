@@ -13,8 +13,8 @@ using Clipsa;
 
 internal static class GuidedScrollChecks
 {
-    private sealed record HostState(int X, int Y, int Width, int Height, double Offset, double Scale, long Handle, bool Arrow);
-    public static void Host(string report)
+    private sealed record HostState(int X, int Y, int Width, int Height, double Offset, double Scale, long Handle, bool Arrow, double Target);
+    public static void Host(string report, bool smooth = false)
     {
         var app = new Application();
         var pixels = new byte[360 * 2200 * 4]; new Random(77).NextBytes(pixels);
@@ -22,7 +22,8 @@ internal static class GuidedScrollChecks
         var source = BitmapSource.Create(360, 2200, 96, 96, PixelFormats.Bgra32, null, pixels, 1440); source.Freeze();
         var image = new Image { Source = source, Width = 360, Height = 2200, Stretch = Stretch.Fill };
         RenderOptions.SetBitmapScalingMode(image, BitmapScalingMode.NearestNeighbor);
-        var scroller = new ScrollViewer { Content = image, Focusable = true, VerticalScrollBarVisibility = ScrollBarVisibility.Hidden, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled };
+        ScrollViewer scroller = smooth ? new SmoothScroller() : new ScrollViewer();
+        scroller.Content = image; scroller.Focusable = true; scroller.VerticalScrollBarVisibility = ScrollBarVisibility.Hidden; scroller.HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled;
         var window = new Window { Title = "Clipsa guided scroll QA target", Content = scroller, Width = 400, Height = 400, Left = 30, Top = 200, Topmost = true };
         var arrow = false;
         scroller.PreviewKeyDown += (_, e) => { if (e.Key == Key.Down) arrow = true; };
@@ -31,7 +32,7 @@ internal static class GuidedScrollChecks
         {
             var a = scroller.PointToScreen(new Point(20, 20)); var b = scroller.PointToScreen(new Point(300, 260));
             var state = new HostState((int)a.X, (int)a.Y, (int)(b.X - a.X), (int)(b.Y - a.Y), scroller.VerticalOffset,
-                PresentationSource.FromVisual(window)!.CompositionTarget!.TransformToDevice.M22, new System.Windows.Interop.WindowInteropHelper(window).Handle.ToInt64(), arrow);
+                PresentationSource.FromVisual(window)!.CompositionTarget!.TransformToDevice.M22, new System.Windows.Interop.WindowInteropHelper(window).Handle.ToInt64(), arrow, scroller is SmoothScroller animated ? animated.Target : scroller.VerticalOffset);
             try { File.WriteAllText(report + ".tmp", JsonSerializer.Serialize(state)); File.Move(report + ".tmp", report, true); }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) { }
         };
@@ -39,13 +40,13 @@ internal static class GuidedScrollChecks
         window.Closed += (_, _) => timer.Stop();
         app.Run(window);
     }
-    public static void Run()
+    public static void Run(bool smooth = false)
     {
         var root = Path.Combine(Path.GetTempPath(), "Clipsa-guided-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(root);
         Environment.SetEnvironmentVariable("CLIPSA_DATA_DIR", root);
         var report = Path.Combine(root, "target.json");
         var start = new ProcessStartInfo(Environment.ProcessPath!) { UseShellExecute = false, WindowStyle = ProcessWindowStyle.Hidden };
-        start.ArgumentList.Add("--guided-scroll-host"); start.ArgumentList.Add(report);
+        start.ArgumentList.Add(smooth ? "--guided-scroll-host-smooth" : "--guided-scroll-host"); start.ArgumentList.Add(report);
         using var host = Process.Start(start)!;
         for (var n = 0; !File.Exists(report) && n < 100 && !host.HasExited; n++) Thread.Sleep(50);
         if (!File.Exists(report)) throw new Exception("Separate scroll QA target did not start.");
@@ -96,11 +97,12 @@ internal static class GuidedScrollChecks
             var status = ((TextBlock)type.GetField("status", flags)!.GetValue(session)!).Text;
             if (!sawArrow || !sawWheel || !completing || path is null) throw new Exception($"Guided/manual input failed: arrow={sawArrow}, wheel={sawWheel}, done={completing}, status={status}");
             var final = Read();
+            if (smooth && Math.Abs(final.Offset - final.Target) > 1) throw new Exception("Capture finished before the smooth animation settled.");
             using var bitmap = new System.Drawing.Bitmap(path);
-            if (Math.Abs(bitmap.Height - bounds.Height - final.Offset * final.Scale) > 2) throw new Exception("Guided scroll output is truncated.");
+            if (Math.Abs(bitmap.Height - bounds.Height - final.Offset * final.Scale) > 2) throw new Exception($"Guided scroll output is truncated: actual={bitmap.Height}, initial={bounds.Height}, offset={final.Offset}, target={final.Target}, scale={final.Scale}, position={type.GetField("position", flags)!.GetValue(session)}, top={type.GetField("fixedTop", flags)!.GetValue(session)}, bottom={type.GetField("fixedBottom", flags)!.GetValue(session)}.");
             var joined = ScrollStitcher.Pixels(bitmap);
             if (!baseline!.AsSpan(0, bounds.Width * 20 * 4).SequenceEqual(joined.AsSpan(0, bounds.Width * 20 * 4))) throw new Exception("Guided scroll lost its initial rows.");
-            Console.WriteLine($"Separate target: arrow keys, mouse wheel, guided steps, stop/finish and complete output with initial rows OK ({bitmap.Width} x {bitmap.Height}).");
+            Console.WriteLine($"Separate target{(smooth ? " with animated scrolling" : "")}: arrow keys, mouse wheel, guided steps, stop/finish and complete output with initial rows OK ({bitmap.Width} x {bitmap.Height}).");
         }
         finally
         {
@@ -109,6 +111,34 @@ internal static class GuidedScrollChecks
             PostMessage(new IntPtr(initial.Handle), 0x10, IntPtr.Zero, IntPtr.Zero); host.WaitForExit(3000);
             if (path is not null) File.Delete(path); CaptureService.Cleanup(); app.Shutdown();
         }
+    }
+    private sealed class SmoothScroller : ScrollViewer
+    {
+        private readonly DispatcherTimer animation = new() { Interval = TimeSpan.FromMilliseconds(16) };
+        public double Target { get; private set; }
+        public SmoothScroller()
+        {
+            animation.Tick += (_, _) => { var difference = Target - VerticalOffset; if (Math.Abs(difference) < .1) { animation.Stop(); return; } ScrollToVerticalOffset(VerticalOffset + Math.Clamp(difference, -2, 2)); };
+            Unloaded += (_, _) => animation.Stop();
+        }
+        public void Move(double delta) { Target = Math.Clamp(Math.Max(Target, VerticalOffset) + delta, 0, ScrollableHeight); animation.Start(); }
+        protected override void OnMouseWheel(MouseWheelEventArgs e) { Move(-e.Delta * .8); e.Handled = true; }
+        protected override void OnKeyDown(KeyEventArgs e) { if (e.Key == Key.Down) { Move(16); e.Handled = true; } else base.OnKeyDown(e); }
+        protected override System.Windows.Automation.Peers.AutomationPeer OnCreateAutomationPeer() => new SmoothPeer(this);
+    }
+    private sealed class SmoothPeer(SmoothScroller viewer) : System.Windows.Automation.Peers.FrameworkElementAutomationPeer(viewer), System.Windows.Automation.Provider.IScrollProvider
+    {
+        protected override string GetClassNameCore() => "Clipsa QA animated scroll";
+        protected override System.Windows.Automation.Peers.AutomationControlType GetAutomationControlTypeCore() => System.Windows.Automation.Peers.AutomationControlType.Pane;
+        public override object? GetPattern(System.Windows.Automation.Peers.PatternInterface pattern) => pattern == System.Windows.Automation.Peers.PatternInterface.Scroll ? this : base.GetPattern(pattern);
+        public bool HorizontallyScrollable => false;
+        public bool VerticallyScrollable => viewer.ScrollableHeight > 0;
+        public double HorizontalScrollPercent => -1;
+        public double VerticalScrollPercent => viewer.ScrollableHeight > 0 ? viewer.VerticalOffset * 100 / viewer.ScrollableHeight : 0;
+        public double HorizontalViewSize => 100;
+        public double VerticalViewSize => viewer.ExtentHeight > 0 ? viewer.ViewportHeight * 100 / viewer.ExtentHeight : 100;
+        public void Scroll(System.Windows.Automation.ScrollAmount horizontalAmount, System.Windows.Automation.ScrollAmount verticalAmount) => viewer.Move(verticalAmount switch { System.Windows.Automation.ScrollAmount.SmallIncrement => 32, System.Windows.Automation.ScrollAmount.LargeIncrement => 160, System.Windows.Automation.ScrollAmount.SmallDecrement => -32, System.Windows.Automation.ScrollAmount.LargeDecrement => -160, _ => 0 });
+        public void SetScrollPercent(double horizontalPercent, double verticalPercent) { if (verticalPercent >= 0) viewer.Move(viewer.ScrollableHeight * verticalPercent / 100 - viewer.Target); }
     }
     [StructLayout(LayoutKind.Sequential)] private struct NativePoint { public int X, Y; }
     [DllImport("user32.dll")] private static extern bool GetCursorPos(out NativePoint point);

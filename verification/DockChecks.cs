@@ -42,16 +42,31 @@ internal static class DockChecks
         try
         {
             void Place() { typeof(MainWindow).GetMethod("PositionPanel", Private)!.Invoke(main, null); main.UpdateLayout(); ScrollChecks.Pump(60); }
+            foreach (var vertical in new[] { false, true })
             foreach (var position in DockGeometry.Positions)
             {
-                settings.PanelPlacement = position; settings.PanelX = .3; settings.PanelY = .7; Place();
+                settings.PanelVertical = vertical; settings.PanelPlacement = position; settings.PanelX = .3; settings.PanelY = .7; Place();
                 var handle = new System.Windows.Interop.WindowInteropHelper(main).Handle; GetWindowRect(handle, out var actual);
                 var screen = System.Windows.Forms.Screen.FromHandle(handle);
                 Require(screen.WorkingArea.Contains(actual.Rectangle), "real HWND remains in selected monitor: " + position);
+                var header = (FrameworkElement)main.FindName("MainHeader"); var cards = (FrameworkElement)main.FindName("CardsScroll");
+                var headerBounds = header.TransformToAncestor(main).TransformBounds(new Rect(header.RenderSize));
+                var cardBounds = cards.TransformToAncestor(main).TransformBounds(new Rect(cards.RenderSize));
+                var full = (Rectangle)typeof(MainWindow).GetField("fullDockBounds", Private)!.GetValue(main)!;
+                var edge = DockGeometry.Edge(position, full, screen.WorkingArea, settings.PanelVertical || position is "Left" or "Right");
+                Require(edge switch { "Left" => headerBounds.Right <= cardBounds.Left + 1, "Right" => headerBounds.Left >= cardBounds.Right - 1, "Bottom" => headerBounds.Top >= cardBounds.Bottom - 1, _ => headerBounds.Bottom <= cardBounds.Top + 1 }, "header follows attached edge: " + position);
+                if (Environment.GetEnvironmentVariable("CLIPSA_QA_PREVIEW_DIR") is { Length: > 0 } previews && position is "Bottom" or "Left" or "Right")
+                {
+                    System.IO.Directory.CreateDirectory(previews);
+                    var bitmap = new RenderTargetBitmap((int)Math.Ceiling(main.ActualWidth), (int)Math.Ceiling(main.ActualHeight), 96, 96, PixelFormats.Pbgra32);
+                    bitmap.Render(main); var encoder = new PngBitmapEncoder(); encoder.Frames.Add(BitmapFrame.Create(bitmap));
+                    using var stream = System.IO.File.Create(System.IO.Path.Combine(previews, position + ".png")); encoder.Save(stream);
+                }
             }
             foreach (var position in new[] { "Top", "Bottom", "Left", "Right" })
             {
-                settings.PanelPlacement = position; settings.AutoHideCollapsed = true; settings.EdgeRevealDelay = 150;
+                settings.PanelVertical = false;
+                settings.PanelPlacement = position; settings.AutoHideCollapsed = true; settings.EdgeRevealDelay = 150; settings.EdgeHideDelay = 600;
                 settings.PanelCollapsed = true;
                 typeof(MainWindow).GetField("collapsed", Private)!.SetValue(main, true);
                 typeof(MainWindow).GetField("autoHidden", Private)!.SetValue(main, true);
@@ -63,16 +78,23 @@ internal static class DockChecks
                 SetCursorPos(tab.Left + tab.Width / 2, tab.Top + tab.Height / 2);
                 ScrollChecks.Pump(80);
                 Require((bool)typeof(MainWindow).GetField("autoHidden", Private)!.GetValue(main)!, "brief crossing does not reveal");
-                ScrollChecks.Pump(220);
-                Require(!(bool)typeof(MainWindow).GetField("autoHidden", Private)!.GetValue(main)!, "edge dwell reveals bar: " + position);
+                var revealDeadline = Environment.TickCount64 + 1200;
+                while ((bool)typeof(MainWindow).GetField("autoHidden", Private)!.GetValue(main)! && Environment.TickCount64 < revealDeadline) ScrollChecks.Pump(40);
+                Require(!(bool)typeof(MainWindow).GetField("autoHidden", Private)!.GetValue(main)!, $"edge dwell reveals bar: {position}; cursor={System.Windows.Forms.Cursor.Position}; tab={tab}; full={typeof(MainWindow).GetField("fullDockBounds", Private)!.GetValue(main)}; entered={typeof(MainWindow).GetField("edgeEntered", Private)!.GetValue(main)}; now={Environment.TickCount64}; visible={main.IsVisible}");
                 if (position is "Left" or "Right") Require(((FrameworkElement)main.FindName("SideCompactPanel")).IsVisible, "vertical compact controls are visible");
                 SetCursorPos(screen.WorkingArea.Right - 150, screen.WorkingArea.Top + screen.WorkingArea.Height / 2);
-                ScrollChecks.Pump(1050);
+                ScrollChecks.Pump(250);
+                Require(!(bool)typeof(MainWindow).GetField("autoHidden", Private)!.GetValue(main)!, "hide delay preserves the bar briefly: " + position);
+                ScrollChecks.Pump(650);
                 Require((bool)typeof(MainWindow).GetField("autoHidden", Private)!.GetValue(main)!, "bar hides after leaving: " + position);
             }
             settings.PanelPlacement = "BottomRight"; settings.PanelX = .2; settings.PanelY = .8;
             SettingsStore.Save(settings); var loaded = SettingsStore.Load();
-            Require(loaded.PanelPlacement == "BottomRight" && loaded.PanelCollapsed && loaded.AutoHideCollapsed && loaded.EdgeRevealDelay == 150 && loaded.PanelX == .2, "dock preferences survive a settings roundtrip");
+            Require(loaded.PanelPlacement == "BottomRight" && loaded.PanelCollapsed && loaded.AutoHideCollapsed && loaded.EdgeRevealDelay == 150 && loaded.EdgeHideDelay == 600 && loaded.PanelX == .2, "dock preferences survive a settings roundtrip");
+            var dialog = new SettingsWindow(settings);
+            Require(((FrameworkElement)dialog.FindName("DockMonitorSection")).Visibility == (System.Windows.Forms.Screen.AllScreens.Length > 1 ? Visibility.Visible : Visibility.Collapsed), "monitor selector only appears for multiple screens");
+            Require(((Slider)dialog.FindName("DockHideDelaySlider")).Value == 600 && ((Slider)dialog.FindName("DockDelaySlider")).Value == 150, "independent hide and reveal slider values");
+            dialog.Close();
             Console.WriteLine("Real dock positions, vertical compact layout, dwell reveal, automatic hiding and settings persistence: OK.");
         }
         finally { SetCursorPos(original.X, original.Y); main.Close(); CaptureService.Cleanup(); app.Shutdown(); }

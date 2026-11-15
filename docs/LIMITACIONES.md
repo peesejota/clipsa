@@ -1,4 +1,4 @@
-# Limitaciones de la beta 0.6.0
+# Limitaciones de la beta 0.6.1
 
 El destino es Windows 11 x64. Windows 10 22H2 x64 no está validado: el instalador permite técnicamente el build 19045 o posterior, pero ese umbral no certifica compatibilidad ni pruebas. No se ofrece soporte para x86, ARM64 nativo ni emulación ARM64 en este paquete.
 
