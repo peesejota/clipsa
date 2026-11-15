@@ -79,7 +79,7 @@ public partial class MainWindow
         }
         CardsScroll.HorizontalScrollBarVisibility = vertical ? ScrollBarVisibility.Disabled : ScrollBarVisibility.Hidden;
         CardsScroll.VerticalScrollBarVisibility = vertical ? ScrollBarVisibility.Auto : ScrollBarVisibility.Disabled;
-        CollapseButton.Content = edge switch { "Bottom" => collapsed ? "⌃" : "⌄", "Left" => collapsed ? "›" : "‹", "Right" => collapsed ? "‹" : "›", _ => collapsed ? "⌄" : "⌃" };
+        CollapseButton.Content = edge == "Bottom" ? collapsed ? "⌃" : "⌄" : collapsed ? "⌄" : "⌃";
         RootBorder.Visibility = autoHidden ? Visibility.Collapsed : Visibility.Visible;
         AutoHideHandle.Visibility = autoHidden ? Visibility.Visible : Visibility.Collapsed;
         GlassBackground.Visibility = autoHidden ? Visibility.Collapsed : Visibility.Visible;
