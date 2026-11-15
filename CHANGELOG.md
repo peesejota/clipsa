@@ -1,5 +1,14 @@
 # Cambios
 
+## 0.6.0 · beta · 15 de noviembre de 2026
+
+- Scroll guiado **Capturar más / Parar scroll**: pasos cortos, comprobación de cada unión y espera del último movimiento antes de guardar; accesibilidad Windows y rueda dirigida como alternativa.
+- Panel de scroll sin bloqueo modal: permite usar la página con flechas, rueda y trackpad. El guiado se pausa si cambia la ventana activa.
+- Barra en bordes, esquinas y posición libre, arrastrando el logo/nombre o ajustando porcentajes; formato vertical y monitor independiente.
+- Ocultación opcional al colapsar, pestaña en el borde y espera configurable de 150–1500 ms para desplegar. Se oculta al alejar el ratón y permanece al usar las acciones.
+- Reordenación y miniaturas adaptadas al formato vertical; se recuerda el estado colapsado.
+
+
 ## 0.5.3 · beta · 12 de noviembre de 2026
 
 - Acciones visibles al pasar sobre una miniatura compacta: vista previa, editar, guardar, copiar, abrir y borrar, con etiquetas al mantener el ratón. Se conserva el arrastre para exportar o reordenar.

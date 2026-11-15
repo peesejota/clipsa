@@ -19,6 +19,27 @@ internal sealed class ScrollCaptureWindow : Window
     private readonly Rectangle region;
     private readonly IntPtr targetWindow;
     private readonly Rectangle? targetBounds;
+    private readonly ScrollDriver driver;
+    private readonly Button guided = new() { Content = "Capturar más", IsEnabled = false, Padding = new Thickness(10, 5, 10, 5), Margin = new Thickness(4), ToolTip = "Avanza en pasos cortos, comprueba cada unión y se detiene al llegar al final. Pulsa de nuevo para parar." };
+    private CancellationTokenSource? guidedCancellation;
+    private Task? guidedTask;
+    private bool gapDetected;
+    private bool captureLoop;
+    private bool captureResult;
+    public bool? ShowCapture()
+    {
+        captureLoop = true;
+        var frame = new DispatcherFrame();
+        Closed += (_, _) => frame.Continue = false;
+        ShowActivated = false; Show();
+        if (IsVisible) Dispatcher.PushFrame(frame);
+        return captureResult;
+    }
+    private void Complete(bool success)
+    {
+        if (captureLoop) { captureResult = success; Close(); }
+        else DialogResult = success;
+    }
     private readonly DispatcherTimer timer;
     private readonly Queue<Bitmap> pending = new();
     private readonly int queueLimit;
@@ -44,9 +65,11 @@ internal sealed class ScrollCaptureWindow : Window
         if (!screen.Bounds.Contains(bounds)) throw new ArgumentException("The capture must fit inside one monitor.", nameof(bounds));
         region = bounds;
         queueLimit = (int)Math.Clamp(64_000_000L / ((long)bounds.Width * bounds.Height * 4), 1, 8);
-        targetWindow = GetAncestor(WindowFromPoint(new NativePoint { X = bounds.Left + bounds.Width / 2, Y = bounds.Top + bounds.Height / 2 }), 2);
+        var contentWindow = WindowFromPoint(new NativePoint { X = bounds.Left + bounds.Width / 2, Y = bounds.Top + bounds.Height / 2 });
+        targetWindow = GetAncestor(contentWindow, 2);
+        driver = new ScrollDriver(targetWindow, contentWindow, bounds, cancellation.Token);
         if (targetWindow != IntPtr.Zero && GetWindowRect(targetWindow, out var original)) targetBounds = original.Rectangle;
-        Title = "Clipsa · Scroll"; Width = 520; Height = 260;
+        Title = "Clipsa · Scroll"; Width = 560; Height = 290;
         Topmost = true; ShowInTaskbar = false; ResizeMode = ResizeMode.NoResize;
         WindowStartupLocation = WindowStartupLocation.Manual;
         var work = MonitorService.WorkArea(screen);
@@ -56,13 +79,14 @@ internal sealed class ScrollCaptureWindow : Window
         var root = new StackPanel { Margin = new Thickness(8) };
         root.Children.Add(status);
         root.Children.Add(preview);
-        var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
+        var buttons = new WrapPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right };
         var finish = new Button { Content = "Terminar y guardar", IsEnabled = false, Padding = new Thickness(12, 5, 12, 5), Margin = new Thickness(4) };
         var partial = new Button { Content = "Guardar lo capturado", IsEnabled = false, Padding = new Thickness(8, 5, 8, 5), Margin = new Thickness(4), ToolTip = "Guardar sólo los tramos aceptados, aunque el último desplazamiento no se haya podido unir." };
         var cancel = new Button { Content = "Cancelar", Padding = new Thickness(12, 5, 12, 5), Margin = new Thickness(4) };
         finish.Click += (_, _) => Finish(); cancel.Click += (_, _) => Cancel();
         partial.Click += (_, _) => { if (System.Windows.MessageBox.Show(this, "¿Guardar únicamente los tramos aceptados? La parte final que no se haya unido puede faltar.", "Clipsa", MessageBoxButton.YesNo) == MessageBoxResult.Yes) FinishCore(false); };
-        buttons.Children.Add(cancel); buttons.Children.Add(partial); buttons.Children.Add(finish); root.Children.Add(buttons); Content = root;
+        guided.Click += (_, _) => ToggleGuided();
+        buttons.Children.Add(cancel); buttons.Children.Add(guided); buttons.Children.Add(partial); buttons.Children.Add(finish); root.Children.Add(buttons); Content = root;
         // The old three-stable-sample gate skipped the entire gesture during continuous scroll.
         // Keep screen sampling independent of matching so short intermediate
         // views are retained while the previous pair is being processed.
@@ -107,14 +131,15 @@ internal sealed class ScrollCaptureWindow : Window
         ContentRendered += (_, _) =>
         {
             if (!controlsReady || previous is not null || finished) return;
+            driver.Focus();
             Native.DwmFlush(); // Placement, WPF rendering and exclusion must all be committed.
             try
             {
                 // Establish the baseline immediately, BEFORE inviting the user to scroll.
                 using var initial = Capture();
                 InitializeFirstFrame(initial, ScrollStitcher.Pixels(initial));
-                partial.IsEnabled = true; finish.IsEnabled = true;
-                status.Text = $"Inicio guardado · {region.Width} × {region.Height} px. Desplaza arriba o abajo, dejando solapamiento. Terminar para guardar · Esc o clic derecho para cancelar.";
+                partial.IsEnabled = true; finish.IsEnabled = true; guided.IsEnabled = true;
+                status.Text = $"Inicio guardado · {region.Width} × {region.Height} px. Usa rueda, trackpad o flechas en la página, o pulsa Capturar más para el modo guiado. Esc/clic derecho cancela.";
                 timer.Start();
             }
             catch (Exception ex)
@@ -140,7 +165,59 @@ internal sealed class ScrollCaptureWindow : Window
     private void Cancel()
     {
         if (finished || !IsVisible) return;
-        ResultPath = null; timer.Stop(); cancellation.Cancel(); DialogResult = false;
+        ResultPath = null; timer.Stop(); cancellation.Cancel(); Complete(false);
+    }
+
+    private void ToggleGuided()
+    {
+        if (guidedTask is { IsCompleted: false }) { guidedCancellation?.Cancel(); return; }
+        if (finished || finishing || previous is null || sizeLimitReached) return;
+        guidedCancellation?.Dispose();
+        guidedCancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellation.Token);
+        timer.Stop(); guided.Content = "Parar scroll"; driver.Focus();
+        guidedTask = RunGuided(guidedCancellation.Token);
+    }
+    private async Task RunGuided(CancellationToken token)
+    {
+        try
+        {
+            while (processing) await Task.Delay(20, token);
+            using (var initial = Capture())
+                if (!await Accept(initial, ScrollStitcher.Pixels(initial), token))
+                { status.Text = "Vuelve a la última zona capturada antes de iniciar el modo guiado; falta una unión."; return; }
+            var unchanged = 0;
+            while (!finished && !sizeLimitReached)
+            {
+                token.ThrowIfCancellationRequested();
+                if (!TargetUnmoved()) break;
+                await Task.Run(driver.Step, token).WaitAsync(TimeSpan.FromSeconds(2));
+                var moved = false;
+                // Let smooth scrolling render. No further wheel input is sent
+                // until the current view has been checked against the last one.
+                for (var attempt = 0; attempt < 6; attempt++)
+                {
+                    await Task.Delay(70, token);
+                    using var frame = Capture();
+                    var pixels = await Task.Run(() => ScrollStitcher.Pixels(frame), token);
+                    if (previous is not null && ScrollStitcher.Difference(previous, pixels, frame.Width, frame.Height) > .5)
+                    {
+                        if (!await Accept(frame, pixels, token))
+                        { status.Text = "El modo guiado se ha pausado para no perder un tramo. Vuelve un poco arriba o amplía la zona y reanuda."; return; }
+                        moved = true;
+                        // Capture the remainder of a smooth step before sending another.
+                        await Task.Delay(150, token);
+                        using var settled = Capture();
+                        if (!await Accept(settled, ScrollStitcher.Pixels(settled), token)) return;
+                        break;
+                    }
+                }
+                unchanged = moved ? 0 : unchanged + 1;
+                if (unchanged >= 8) { status.Text = "Final alcanzado o la página ya no se desplaza. Pulsa Terminar y guardar."; break; }
+            }
+        }
+        catch (OperationCanceledException) { }
+        catch (Exception ex) { AppDiagnostics.Log(ex, "Scroll guiado"); status.Text = "Scroll guiado pausado: " + ex.Message; }
+        finally { guided.Content = "Capturar más"; if (!finished && !finishing && !sizeLimitReached) timer.Start(); }
     }
 
     private bool TargetUnmoved()
@@ -212,7 +289,8 @@ internal sealed class ScrollCaptureWindow : Window
             status.Text = "Primer tramo capturado. Desplaza y haz una pausa corta.";
             return true;
         }
-        if (ScrollStitcher.Difference(previous, pixels, frame.Width, frame.Height) <= .5) return true;
+        if (ScrollStitcher.Difference(previous, pixels, frame.Width, frame.Height) <= .5)
+        { if (gapDetected) { gapDetected = false; status.Text = "Unión recuperada. Puedes continuar o usar Capturar más."; } return true; }
         var old = previous;
         var top = bodyInitialized ? fixedTop : -1;
         var bottom = bodyInitialized ? fixedBottom : -1;
@@ -222,11 +300,13 @@ internal sealed class ScrollCaptureWindow : Window
         if (match.Kind == ScrollStitcher.MatchKind.Unchanged) return true;
         if (match.Kind != ScrollStitcher.MatchKind.Matched)
         {
+            gapDetected = true;
             status.Text = match.Kind == ScrollStitcher.MatchKind.Ambiguous
                 ? "Esperando contenido reconocible. Lo capturado se conserva; desplázate más despacio."
                 : "Falta un tramo por un salto grande o un cambio de contenido. La captura sigue activa: vuelve un poco arriba hasta recuperar la unión y continúa. Lo anterior se conserva.";
             return false;
         }
+        gapDetected = false;
         if (!bodyInitialized)
         {
             fixedTop = match.FixedTop; fixedBottom = match.FixedBottom;
@@ -303,6 +383,8 @@ internal sealed class ScrollCaptureWindow : Window
         finishing = true; timer.Stop();
         try
         {
+            guidedCancellation?.Cancel();
+            if (guidedTask is not null) { await guidedTask; await Task.Delay(150, cancellation.Token); Native.DwmFlush(); }
             while (processing) await Task.Delay(20, cancellation.Token);
             cancellation.Token.ThrowIfCancellationRequested();
             if (!sizeLimitReached && includeFinal)
@@ -320,7 +402,7 @@ internal sealed class ScrollCaptureWindow : Window
                 foreach (var frame in frames) graphics.DrawImageUnscaled(frame.Image, 0, fixedTop + frame.Offset - minimum);
                 if (footer is not null) graphics.DrawImageUnscaled(footer, 0, fixedTop + maximum - minimum);
             }
-            ResultPath = CaptureService.Save(result); finished = true; DialogResult = true;
+            ResultPath = CaptureService.Save(result); finished = true; Complete(true);
         }
         catch (OperationCanceledException) { }
         catch (Exception ex) { AppDiagnostics.Log(ex, "Finish manual scroll capture"); status.Text = "No se pudo terminar: " + ex.Message; }

@@ -34,7 +34,7 @@ public partial class MainWindow : Window
             if (!CompactActionsRoot.IsMouseOver && !CompactActionsRoot.IsKeyboardFocusWithin && CompactActionsPopup.PlacementTarget is not FrameworkElement { IsMouseOver: true }) CloseCompactActions();
         };
         IsVisibleChanged += (_, _) => { if (!IsVisible) CloseCompactActions(); };
-        ApplyScale(); PositionPanel(); source = (HwndSource)PresentationSource.FromVisual(this)!; source.AddHook(WndProc); ApplyGlassBrush();
+        InitializeDock(); ApplyScale(); PositionPanel(); source = (HwndSource)PresentationSource.FromVisual(this)!; source.AddHook(WndProc); ApplyGlassBrush();
         RegisterHotkeys();
         using var iconStream = System.Windows.Application.GetResourceStream(new Uri("pack://application:,,,/Clipsa;component/Brand/clipsa-icon.ico"))!.Stream; trayIcon = new System.Drawing.Icon(iconStream, 32, 32); tray = new Forms.NotifyIcon { Visible = true, Text = "Clipsa", Icon = trayIcon }; var menu = new Forms.ContextMenuStrip(); menu.Items.Add("Abrir Clipsa", null, (_, _) => { Show(); Activate(); PositionPanel(); }); menu.Items.Add("Ajustes", null, (_, _) => ShowSettings()); menu.Items.Add(new Forms.ToolStripSeparator()); menu.Items.Add("Captura completa", null, (_, _) => CaptureFull()); menu.Items.Add("Captura de región", null, (_, _) => CaptureRegion()); menu.Items.Add("Captura con scroll", null, (_, _) => CaptureScroll()); menu.Items.Add(new Forms.ToolStripSeparator()); menu.Items.Add("Salir", null, (_, _) => ExitApplication()); tray.ContextMenuStrip = menu; tray.DoubleClick += (_, _) => TogglePanel();
         if (SettingsStore.LastLoadNotice is { } notice) StatusText.Text = notice;
@@ -45,7 +45,7 @@ public partial class MainWindow : Window
                 foreach (var path in SessionRecovery.Recover()) { try { store.Add(path); } catch (Exception ex) { AppDiagnostics.Log(ex, "Cargar captura recuperada"); } }
             else SessionRecovery.DiscardAbandoned();
         }
-        if (App.BackgroundLaunch) Dispatcher.BeginInvoke(() => Hide(), DispatcherPriority.ContextIdle);
+        if (App.BackgroundLaunch) Dispatcher.BeginInvoke(() => { if (collapsed && settings.AutoHideCollapsed) { autoHidden = true; PositionPanel(); } else Hide(); }, DispatcherPriority.ContextIdle);
         tray.BalloonTipClicked += (_, _) =>
         {
             if (pendingUpdate is not null) ShowSettings();
@@ -124,18 +124,9 @@ public partial class MainWindow : Window
     }
     private void PositionPanel()
     {
-        CloseCompactActions();
-        var screen = MonitorService.Resolve(panelMonitor.Length > 0 ? panelMonitor : settings.CaptureMonitor);
-        var work = MonitorService.WorkArea(screen); var dpi = MonitorService.DpiScale(screen); var scale = settings.PanelScale;
-        Width = Math.Min(1100 * scale, Math.Max(240, work.Width - 32)); Height = (collapsed ? 44 : 276) * scale;
-        Left = work.Left + (work.Width - Width) / 2; Top = work.Top;
-        if (new WindowInteropHelper(this).Handle != IntPtr.Zero)
-        {
-            var width = Math.Min(screen.WorkingArea.Width, (int)Math.Round(Width * dpi.X));
-            MonitorService.PlaceWindow(this, new System.Drawing.Rectangle(screen.WorkingArea.Left + (screen.WorkingArea.Width - width) / 2, screen.WorkingArea.Top, width, (int)Math.Round(Height * dpi.Y)));
-        }
+        PlaceDock();
     }
-    private void ItemsChanged(object? s, NotifyCollectionChangedEventArgs e) { if (store.Items.Count > 0) { Show(); Activate(); PositionPanel(); StatusText.Text = $"  {store.Items.Count} captura{(store.Items.Count == 1 ? "" : "s")}"; } }
+    private void ItemsChanged(object? s, NotifyCollectionChangedEventArgs e) { if (store.Items.Count > 0) { Show(); Activate(); PositionPanel(); StatusText.Text = $"  {store.Items.Count} captura{(store.Items.Count == 1 ? "" : "s")}"; } else { if (windowInitialized && IsVisible) PositionPanel(); StatusText.Text = "Sin capturas"; } }
     private void CaptureFull() => RunCapture(() => CaptureService.CaptureScreen(panelMonitor));
     private void CaptureRegion() => RunCapture(() => CaptureService.CaptureRegion(panelMonitor));
     private void CaptureScroll() => RunCapture(() => CaptureService.CaptureScroll(settings.ScrollSteps, settings.ScrollDelay, settings.ScrollOverlap, panelMonitor));
@@ -170,18 +161,21 @@ public partial class MainWindow : Window
             finally { preparation.Dispose(); cancellation.Dispose(); captureBusy = false; PositionPanel(); }
         }, DispatcherPriority.ApplicationIdle);
     }
-    private void Add(string path) => store.Add(path); private void TogglePanel() { if (IsVisible) Hide(); else { Show(); PositionPanel(); } } private void ClosePanel_Click(object sender, RoutedEventArgs e) => Close(); private void Settings_Click(object sender, RoutedEventArgs e) => ShowSettings();
-    private void Collapse_Click(object sender, RoutedEventArgs e) { collapsed = !collapsed; CompactScroll.Visibility = collapsed ? Visibility.Visible : Visibility.Collapsed; BrandTitle.Visibility = collapsed ? Visibility.Collapsed : Visibility.Visible; CardsScroll.Visibility = collapsed ? Visibility.Collapsed : Visibility.Visible; RopeRow.Visibility = collapsed ? Visibility.Collapsed : Visibility.Visible; RootBorder.Padding = collapsed ? new Thickness(24, 5, 24, 5) : new Thickness(24, 12, 24, 20); CollapseButton.Content = collapsed ? "⌄" : "⌃"; PositionPanel(); }
+    private void Add(string path) => store.Add(path); private void TogglePanel() { if (IsVisible && !autoHidden) Hide(); else RevealDock(); } private void ClosePanel_Click(object sender, RoutedEventArgs e) => Close(); private void Settings_Click(object sender, RoutedEventArgs e) => ShowSettings();
+    private void Collapse_Click(object sender, RoutedEventArgs e) { collapsed = !collapsed; settings.PanelCollapsed = collapsed; autoHidden = collapsed && settings.AutoHideCollapsed; SaveDock(); PositionPanel(); }
     private void ShowSettings()
     {
         if (captureBusy || settingsOpen || applyingUpdate || dragInProgress) return;
         settingsOpen = true;
+        if (autoHidden) RevealDock();
         (ReleaseInfo Release, string Package)? update = null;
         UnregisterHotkeys();
         try
         {
             var dialog = new SettingsWindow(settings); if (IsVisible) dialog.Owner = this; else dialog.WindowStartupLocation = WindowStartupLocation.CenterScreen;
+            dialog.WindowStartupLocation = WindowStartupLocation.CenterScreen;
             dialog.ShowDialog(); update = dialog.ReadyUpdate;
+            autoHidden = collapsed && settings.AutoHideCollapsed; edgeEntered = dockLeft = 0;
             panelMonitor = MonitorService.Resolve(settings.CaptureMonitor).DeviceName; ApplyScale(); ApplyGlassBrush(); PositionPanel();
         }
         finally { settingsOpen = false; RegisterHotkeys(); }
@@ -232,16 +226,18 @@ public partial class MainWindow : Window
         if (sender is FrameworkElement card && card.IsMouseCaptured) card.ReleaseMouseCapture();
         dragCard = null;
     }
-    private void HorizontalWheel(object sender, MouseWheelEventArgs e) { if (sender is ScrollViewer viewer) { viewer.ScrollToHorizontalOffset(viewer.HorizontalOffset - e.Delta); e.Handled = true; } }
+    private void HorizontalWheel(object sender, MouseWheelEventArgs e) { if (sender is ScrollViewer viewer) { if (SideDock) viewer.ScrollToVerticalOffset(viewer.VerticalOffset - e.Delta); else viewer.ScrollToHorizontalOffset(viewer.HorizontalOffset - e.Delta); e.Handled = true; } }
     private void Compact_Click(object sender, MouseButtonEventArgs e)
     {
         var clicked = !suppressCompactClick && !dragInProgress && ReferenceEquals(dragCard, sender) && (e.GetPosition(this) - dragStart).Length < 8;
         Card_MouseUp(sender, e);
         if (clicked && sender is FrameworkElement element && element.Tag is CaptureItem item) { OpenAnnotation(item); e.Handled = true; }
     }
-    private int CompactIndex(double x) { for (var i = 0; i < store.Items.Count; i++) if (CompactCards.ItemContainerGenerator.ContainerFromIndex(i) is FrameworkElement c && x < c.TranslatePoint(new System.Windows.Point(c.ActualWidth / 2, 0), CompactScroll).X) return i; return store.Items.Count; }
-    private void Compact_DragOver(object s, System.Windows.DragEventArgs e) { if (e.Data.GetDataPresent(typeof(CaptureItem))) { e.Effects = System.Windows.DragDropEffects.Move; var x = e.GetPosition(CompactScroll).X; ScrollNearEdge(CompactScroll, x); ShowInsertionAt(CompactScroll, CompactCards, CompactIndex(x)); e.Handled = true; } }
-    private void Compact_Drop(object s, System.Windows.DragEventArgs e) { if (e.Data.GetData(typeof(CaptureItem)) is CaptureItem item) { var index = CompactIndex(e.GetPosition(CompactScroll).X); var from = store.Items.IndexOf(item); if (from < 0) return; if (index > from) index--; if (index != from) store.Items.Move(from, Math.Clamp(index, 0, store.Items.Count - 1)); HideInsertion(); e.Handled = true; } }
+    private ScrollViewer CompactViewport => SideDock ? SideCompactScroll : CompactScroll;
+    private ItemsControl CompactItems => SideDock ? SideCompactCards : CompactCards;
+    private int CompactIndex(double coordinate) { for (var i = 0; i < store.Items.Count; i++) if (CompactItems.ItemContainerGenerator.ContainerFromIndex(i) is FrameworkElement c) { var p = c.TranslatePoint(new System.Windows.Point(c.ActualWidth / 2, c.ActualHeight / 2), CompactViewport); if (coordinate < (SideDock ? p.Y : p.X)) return i; } return store.Items.Count; }
+    private void Compact_DragOver(object s, System.Windows.DragEventArgs e) { if (e.Data.GetDataPresent(typeof(CaptureItem))) { e.Effects = System.Windows.DragDropEffects.Move; var p = e.GetPosition(CompactViewport); var value = SideDock ? p.Y : p.X; ScrollNearEdge(CompactViewport, value, SideDock); ShowInsertionAt(CompactViewport, CompactItems, CompactIndex(value)); e.Handled = true; } }
+    private void Compact_Drop(object s, System.Windows.DragEventArgs e) { if (e.Data.GetData(typeof(CaptureItem)) is CaptureItem item) { var p = e.GetPosition(CompactViewport); var index = CompactIndex(SideDock ? p.Y : p.X); var from = store.Items.IndexOf(item); if (from < 0) return; if (index > from) index--; if (index != from) store.Items.Move(from, Math.Clamp(index, 0, store.Items.Count - 1)); HideInsertion(); e.Handled = true; } }
     private void CardImage_MouseDown(object sender, MouseButtonEventArgs e) { if (e.ClickCount != 2) return; var node = e.OriginalSource as DependencyObject; while (node is not null) { if (node is System.Windows.Controls.Image image && image.DataContext is CaptureItem item) { OpenAnnotation(item); e.Handled = true; return; } node = System.Windows.Media.VisualTreeHelper.GetParent(node); } }
     private void OpenAnnotation(CaptureItem item)
     {
@@ -283,24 +279,25 @@ public partial class MainWindow : Window
         data.SetData("Preferred DropEffect", new MemoryStream(BitConverter.GetBytes(1)));
         return data;
     }
-    private void Cards_DragOver(object sender, System.Windows.DragEventArgs e) { if (!e.Data.GetDataPresent(typeof(CaptureItem))) return; e.Effects = System.Windows.DragDropEffects.Move; var point = e.GetPosition(CardsScroll); ScrollNearEdge(CardsScroll, point.X); ShowInsertionAt(CardsScroll, Cards, FindDropIndex(point.X)); e.Handled = true; }
-    private int FindDropIndex(double x) { for (var i = 0; i < store.Items.Count; i++) if (Cards.ItemContainerGenerator.ContainerFromIndex(i) is FrameworkElement container) { var origin = container.TranslatePoint(new System.Windows.Point(0, 0), CardsScroll); if (x < origin.X + container.ActualWidth / 2) return i; } return store.Items.Count; }
-    private static void ScrollNearEdge(ScrollViewer viewport, double x) { if (x < 22) viewport.ScrollToHorizontalOffset(viewport.HorizontalOffset - 12); else if (x > viewport.ActualWidth - 22) viewport.ScrollToHorizontalOffset(viewport.HorizontalOffset + 12); }
+    private void Cards_DragOver(object sender, System.Windows.DragEventArgs e) { if (!e.Data.GetDataPresent(typeof(CaptureItem))) return; e.Effects = System.Windows.DragDropEffects.Move; var point = e.GetPosition(CardsScroll); var coordinate = SideDock ? point.Y : point.X; ScrollNearEdge(CardsScroll, coordinate, SideDock); ShowInsertionAt(CardsScroll, Cards, FindDropIndex(coordinate)); e.Handled = true; }
+    private int FindDropIndex(double coordinate) { for (var i = 0; i < store.Items.Count; i++) if (Cards.ItemContainerGenerator.ContainerFromIndex(i) is FrameworkElement container) { var origin = container.TranslatePoint(new System.Windows.Point(container.ActualWidth / 2, container.ActualHeight / 2), CardsScroll); if (coordinate < (SideDock ? origin.Y : origin.X)) return i; } return store.Items.Count; }
+    private static void ScrollNearEdge(ScrollViewer viewport, double value, bool vertical = false) { var delta = value < 22 ? -12 : value > (vertical ? viewport.ActualHeight : viewport.ActualWidth) - 22 ? 12 : 0; if (vertical) viewport.ScrollToVerticalOffset(viewport.VerticalOffset + delta); else viewport.ScrollToHorizontalOffset(viewport.HorizontalOffset + delta); }
     private void ShowInsertionAt(ScrollViewer viewport, ItemsControl cards, int target)
     {
         var layer = AdornerLayer.GetAdornerLayer(viewport); if (layer is null || cards.Items.Count == 0) return;
         var index = Math.Min(target, cards.Items.Count - 1);
         if (cards.ItemContainerGenerator.ContainerFromIndex(index) is not FrameworkElement container) return;
         var origin = container.TranslatePoint(new System.Windows.Point(0, 0), viewport);
-        var x = target >= cards.Items.Count ? origin.X + container.ActualWidth : origin.X;
+        var vertical = cards == SideCompactCards || cards == Cards && SideDock;
+        var x = vertical ? (target >= cards.Items.Count ? origin.Y + container.ActualHeight : origin.Y) : target >= cards.Items.Count ? origin.X + container.ActualWidth : origin.X;
         if (insertion is not null && insertion.AdornedElement != viewport) { HideInsertion(); insertion = null; }
         insertion ??= new InsertionAdorner(viewport);
         var existing = layer.GetAdorners(viewport);
         if (existing is null || !existing.Contains(insertion)) layer.Add(insertion);
-        insertion.X = Math.Clamp(x, 2, Math.Max(2, viewport.ActualWidth - 2)); insertion.InvalidateVisual();
+        insertion.Horizontal = vertical; insertion.X = Math.Clamp(x, 2, Math.Max(2, (vertical ? viewport.ActualHeight : viewport.ActualWidth) - 2)); insertion.InvalidateVisual();
     }
     private void HideInsertion() { if (insertion is not null) { var layer = AdornerLayer.GetAdornerLayer(insertion.AdornedElement); layer?.Remove(insertion); } }
-    private void Cards_Drop(object sender, System.Windows.DragEventArgs e) { if (!e.Data.GetDataPresent(typeof(CaptureItem))) return; var item = (CaptureItem)e.Data.GetData(typeof(CaptureItem))!; var point = e.GetPosition(CardsScroll); var target = FindDropIndex(point.X); var from = store.Items.IndexOf(item); if (from >= 0) { if (target > from) target--; if (target != from) store.Items.Move(from, Math.Max(0, target)); } HideInsertion(); e.Handled = true; }
+    private void Cards_Drop(object sender, System.Windows.DragEventArgs e) { if (!e.Data.GetDataPresent(typeof(CaptureItem))) return; var item = (CaptureItem)e.Data.GetData(typeof(CaptureItem))!; var point = e.GetPosition(CardsScroll); var target = FindDropIndex(SideDock ? point.Y : point.X); var from = store.Items.IndexOf(item); if (from >= 0) { if (target > from) target--; if (target != from) store.Items.Move(from, Math.Max(0, target)); } HideInsertion(); e.Handled = true; }
     private static CaptureItem Item(object sender) => (CaptureItem)((FrameworkElement)sender).Tag;
     private void Open_Click(object sender, RoutedEventArgs e) => OpenCapture(Item(sender));
     private void Annotate_Click(object sender, RoutedEventArgs e) => EditCapture(Item(sender));
@@ -332,6 +329,8 @@ public partial class MainWindow : Window
     {
         if (!collapsed || captureBusy || settingsOpen || dragInProgress || Mouse.LeftButton == MouseButtonState.Pressed || sender is not FrameworkElement { Tag: CaptureItem item } card) return;
         compactHoverTimer.Stop();
+        CompactActionsPopup.Placement = SideDock ? (settings.PanelPlacement == "Left" ? System.Windows.Controls.Primitives.PlacementMode.Right : System.Windows.Controls.Primitives.PlacementMode.Left) : settings.PanelPlacement.StartsWith("Bottom", StringComparison.Ordinal) ? System.Windows.Controls.Primitives.PlacementMode.Top : System.Windows.Controls.Primitives.PlacementMode.Bottom;
+        CompactActionsPopup.HorizontalOffset = SideDock ? 3 : -66; CompactActionsPopup.VerticalOffset = SideDock ? 0 : 3;
         CompactActionsPopup.PlacementTarget = card; CompactActionsPopup.DataContext = item; CompactActionsPopup.IsOpen = true;
     }
     private void Compact_MouseLeave(object sender, System.Windows.Input.MouseEventArgs e) { compactHoverTimer.Stop(); compactHoverTimer.Start(); }

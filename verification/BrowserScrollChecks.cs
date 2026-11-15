@@ -80,12 +80,12 @@ internal static class BrowserScrollChecks
             timer.Tick += (_, _) =>
             {
                 if (completed.Task.IsCompleted && ++ticksAfterDone == 5) type.GetMethod("Finish", BindingFlags.Instance | BindingFlags.NonPublic)!.Invoke(session, null);
-                if (ticksAfterDone > 40) session.DialogResult = false;
+                if (ticksAfterDone > 40) session.Close();
             };
             var timeout = new DispatcherTimer { Interval = TimeSpan.FromSeconds(20) };
-            timeout.Tick += (_, _) => { timeout.Stop(); session.DialogResult = false; };
+            timeout.Tick += (_, _) => { timeout.Stop(); session.Close(); };
             timer.Start(); timeout.Start();
-            try { session.ShowDialog(); } finally { timer.Stop(); timeout.Stop(); }
+            try { type.GetMethod("ShowCapture")!.Invoke(session, null); } finally { timer.Stop(); timeout.Stop(); }
             result = (string?)type.GetProperty("ResultPath")!.GetValue(session);
             Require(completed.Task.IsCompletedSuccessfully && result is not null, "browser scroll captured completely");
             var movement = completed.Task.Result;

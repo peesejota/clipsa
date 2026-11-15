@@ -45,6 +45,13 @@ public static class MonitorService
         if (!SetWindowPos(handle, IntPtr.Zero, physicalBounds.X, physicalBounds.Y, physicalBounds.Width, physicalBounds.Height, 0x14))
             throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
     }
+    public static System.Drawing.Rectangle WindowBounds(Window window)
+    {
+        if (!GetWindowRect(new WindowInteropHelper(window).Handle, out var rectangle)) throw new System.ComponentModel.Win32Exception(Marshal.GetLastWin32Error());
+        return System.Drawing.Rectangle.FromLTRB(rectangle.Left, rectangle.Top, rectangle.Right, rectangle.Bottom);
+    }
+    [StructLayout(LayoutKind.Sequential)] private struct NativeRect { public int Left, Top, Right, Bottom; }
+    [DllImport("user32.dll", SetLastError = true)] private static extern bool GetWindowRect(IntPtr window, out NativeRect rectangle);
     [StructLayout(LayoutKind.Sequential)] private struct NativePoint { public int X, Y; }
     [DllImport("user32.dll")] private static extern IntPtr MonitorFromPoint(NativePoint point, uint flags);
     [DllImport("shcore.dll")] private static extern int GetDpiForMonitor(IntPtr monitor, int type, out uint x, out uint y);

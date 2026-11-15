@@ -1,5 +1,14 @@
 # Validación de Clipsa
 
+## Revisión 0.6.0 · 15 de noviembre de 2026
+
+Pruebas de geometría: nueve anclajes, posiciones libres, orígenes negativos, tamaños mayores que pantalla y pestañas dentro del área útil. Prueba WPF: HWND en la posición elegida, formato compacto vertical, espera de activación, despliegue/ocultación en cuatro bordes y persistencia.
+
+Scroll con destino en otro proceso de QA: Flecha abajo y rueda inyectadas, continuación guiada, parada/guardado, altura completa y primeras filas conservadas. Resultado 350 × 500 px. No certifica físicamente todos los trackpads ni todos los proveedores de accesibilidad.
+
+Acciones compactas probadas también en el lateral izquierdo: hover, acceso a botones, editor, selector real de guardado cancelado y eliminación del archivo de QA. Los datos y la instancia real del usuario se conservan.
+
+
 ## Revisión 0.5.3 · 12 de noviembre de 2026
 
 Prueba local `--capture-cancel-only` con eventos de teclado y ratón inyectados: Escape y clic derecho cancelan la selección antes y durante el arrastre, sin rectángulo ni captura de ratón retenidos; cancelan el scroll con otra ventana enfocada; y cancelan la preparación de pantalla completa antes de capturar. Se comprobaron ausencia de nuevos PNG, restauración de la barra y posibilidad de usar de nuevo Escape y clic derecho al terminar. Los datos de prueba están aislados de los del usuario.

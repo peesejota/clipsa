@@ -14,7 +14,7 @@ using Clipsa;
 
 internal static class CompactActionsChecks
 {
-    public static void Run()
+    public static void Run(string placement = "Top")
     {
         var root = Path.Combine(Path.GetTempPath(), "Clipsa-compact-" + Guid.NewGuid().ToString("N")); Directory.CreateDirectory(root);
         Environment.SetEnvironmentVariable("CLIPSA_DATA_DIR", root);
@@ -27,11 +27,12 @@ internal static class CompactActionsChecks
         var main = new MainWindow();
         var settings = (AppSettings)typeof(MainWindow).GetField("settings", flags)!.GetValue(main)!;
         settings.KeepInTray = false; settings.CheckUpdatesOnStartup = false; settings.SaveFolder = root;
+        settings.PanelPlacement = placement;
         var store = (CaptureStore)typeof(MainWindow).GetField("store", flags)!.GetValue(main)!;
         store.Add(path); main.Show();
         typeof(MainWindow).GetMethod("Collapse_Click", flags)!.Invoke(main, new object[] { main, new RoutedEventArgs() });
         ScrollChecks.Pump(180);
-        var cards = (ItemsControl)main.FindName("CompactCards");
+        var cards = (ItemsControl)main.FindName(placement is "Left" or "Right" ? "SideCompactCards" : "CompactCards");
         var card = Descendants<Border>(cards).First(b => b.Tag is CaptureItem);
         var popup = (Popup)main.FindName("CompactActionsPopup");
         GetCursorPos(out var original);
@@ -39,7 +40,7 @@ internal static class CompactActionsChecks
         {
             void Hover()
             {
-                var outside = main.PointToScreen(new Point(10, 10)); SetCursorPos((int)outside.X, (int)outside.Y); ScrollChecks.Pump(50);
+                var outside = main.PointToScreen(new Point(main.ActualWidth + 25, main.ActualHeight + 25)); SetCursorPos((int)outside.X, (int)outside.Y); ScrollChecks.Pump(50);
                 var point = card.PointToScreen(new Point(card.ActualWidth / 2, card.ActualHeight / 2)); SetCursorPos((int)point.X, (int)point.Y);
                 ScrollChecks.Pump(220);
                 Require(popup.IsOpen && popup.DataContext == store.Items[0], "hover opens actions for the correct screenshot");

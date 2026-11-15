@@ -67,7 +67,7 @@ internal static class ScrollChecks
         var step = 0; var finishing = false;
         var ticker = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(interval) };
         var timeout = new DispatcherTimer { Interval = TimeSpan.FromSeconds(12) };
-        timeout.Tick += (_, _) => { timeout.Stop(); session.DialogResult = false; };
+        timeout.Tick += (_, _) => { timeout.Stop(); session.Close(); };
         ticker.Tick += (_, _) =>
         {
             if (++step <= count) scroller.ScrollToVerticalOffset(step * increment);
@@ -82,7 +82,7 @@ internal static class ScrollChecks
         string? result = null;
         try
         {
-            timeout.Start(); session.ShowDialog();
+            timeout.Start(); type.GetMethod("ShowCapture")!.Invoke(session, null);
             result = (string?)type.GetProperty("ResultPath")!.GetValue(session);
             var state = ((TextBlock)type.GetField("status", Private)!.GetValue(session)!).Text;
             Require(result is not null, "continuous scroll creates result: " + state);

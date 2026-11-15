@@ -2,13 +2,13 @@
     <Grid x:Name="PanelRoot">
     <Border x:Name="GlassBackground" CornerRadius="0,0,28,28" IsHitTestVisible="False"/>
     <Border x:Name="RootBorder" Background="Transparent" CornerRadius="0,0,28,28" BorderBrush="#A0FFFFFF" BorderThickness="1" Padding="24,12,24,20">
-        <Grid>
+        <Grid x:Name="ShelfLayout">
             <Grid.RowDefinitions><RowDefinition Height="30"/><RowDefinition Height="22"/><RowDefinition Height="*"/></Grid.RowDefinitions>
-            <Grid Grid.Row="0">
+            <Grid x:Name="MainHeader" Grid.Row="0">
                 <Grid.ColumnDefinitions><ColumnDefinition Width="120"/><ColumnDefinition/><ColumnDefinition Width="120"/></Grid.ColumnDefinitions>
                 <TextBlock x:Name="StatusText" Grid.Column="0" Foreground="{StaticResource Ink}" FontSize="11" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}"/>
                 <Button x:Name="UpdateBadge" Grid.Column="0" Content="Nueva versión ↓" Click="Settings_Click" Visibility="Collapsed" ToolTip="Actualización disponible. Abrir Ajustes para descargar o actualizar." Background="#FFA99BFF" Foreground="#FF171A26" Padding="4,0"/>
-                <StackPanel x:Name="BrandTitle" Grid.Column="1" HorizontalAlignment="Center" Orientation="Horizontal" VerticalAlignment="Center"><Image Source="/Clipsa;component/Brand/clipsa-icon.png" Width="22" Height="22" Margin="0,0,7,0"/><TextBlock Text="CLIPSA" Foreground="{StaticResource Ink}" FontFamily="Segoe UI Variable Display, Segoe UI" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center"/></StackPanel>
+                <StackPanel x:Name="BrandTitle" Grid.Column="1" HorizontalAlignment="Center" Orientation="Horizontal" VerticalAlignment="Center" MouseLeftButtonDown="DockDrag_MouseDown" Cursor="SizeAll" ToolTip="Arrastra para colocar Clipsa libremente"><Image Source="/Clipsa;component/Brand/clipsa-icon.png" Width="22" Height="22" Margin="0,0,7,0"/><TextBlock Text="CLIPSA" Foreground="{StaticResource Ink}" FontFamily="Segoe UI Variable Display, Segoe UI" FontSize="15" FontWeight="SemiBold" VerticalAlignment="Center"/></StackPanel>
                 <ScrollViewer x:Name="CompactScroll" Grid.Column="1" Visibility="Collapsed" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Disabled" Margin="8,0" PreviewMouseWheel="HorizontalWheel">
                     <ItemsControl x:Name="CompactCards"><ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal"/></ItemsPanelTemplate></ItemsControl.ItemsPanel>
                         <ItemsControl.ItemTemplate><DataTemplate>
@@ -37,8 +37,19 @@
                     </DataTemplate></ItemsControl.ItemTemplate>
                 </ItemsControl>
             </ScrollViewer>
+            <DockPanel x:Name="SideCompactPanel" Grid.Row="2" Visibility="Collapsed">
+                <StackPanel DockPanel.Dock="Bottom">
+                    <Button Content="⚙" Click="Settings_Click" ToolTip="Ajustes" Height="26" Style="{StaticResource ActionButton}"/>
+                    <Button Content="⇔" Click="Collapse_Click" ToolTip="Extender Clipsa" Height="26" Style="{StaticResource ActionButton}"/>
+                    <Button Content="×" Click="ClosePanel_Click" ToolTip="Ocultar Clipsa" Height="26" Style="{StaticResource ActionButton}"/>
+                </StackPanel>
+                <ScrollViewer x:Name="SideCompactScroll" HorizontalScrollBarVisibility="Disabled" VerticalScrollBarVisibility="Hidden">
+                    <ItemsControl x:Name="SideCompactCards"><ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Vertical"/></ItemsPanelTemplate></ItemsControl.ItemsPanel></ItemsControl>
+                </ScrollViewer>
+            </DockPanel>
         </Grid>
     </Border>
+    <Border x:Name="AutoHideHandle" Visibility="Collapsed" Background="#C0A99BFF" CornerRadius="4" ToolTip="Mantén el ratón aquí para mostrar Clipsa"/>
     <Popup x:Name="CompactActionsPopup" Placement="Bottom" HorizontalOffset="-66" VerticalOffset="3" AllowsTransparency="True" StaysOpen="True" PopupAnimation="Fade" PreviewKeyDown="CompactActions_KeyDown">
         <Border x:Name="CompactActionsRoot" Width="184" CornerRadius="14" Background="#F21D1930" BorderBrush="#B0A99BFF" BorderThickness="1" Padding="10" MouseEnter="CompactActions_MouseEnter" MouseLeave="Compact_MouseLeave">
             <StackPanel>

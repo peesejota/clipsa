@@ -23,6 +23,14 @@ public sealed class AppSettings
     public int ScrollDelay { get; set; } = 250;
     public double ScrollOverlap { get; set; } = .72;
     public double PanelScale { get; set; } = 1.0;
+    public string PanelPlacement { get; set; } = "Top";
+    public string PanelMonitor { get; set; } = "";
+    public bool PanelVertical { get; set; }
+    public double PanelX { get; set; } = .5;
+    public double PanelY { get; set; }
+    public bool PanelCollapsed { get; set; }
+    public bool AutoHideCollapsed { get; set; }
+    public int EdgeRevealDelay { get; set; } = 350;
     public int GlassOpacity { get; set; } = 68;
     public string SaveFolder { get; set; } = AppPaths.IsPortable ? "." : AppPaths.DefaultSaveFolder;
     public bool KeepInTray { get; set; } = true;
@@ -65,6 +73,11 @@ public static class SettingsStore
     {
         value.Full ??= HotkeySetting.PrintScreen(1); value.Region ??= HotkeySetting.PrintScreen(2); value.Scroll ??= HotkeySetting.PrintScreen(3);
         value.PanelScale = double.IsFinite(value.PanelScale) ? Math.Clamp(value.PanelScale, .7, 1.4) : 1;
+        if (!DockGeometry.Positions.Contains(value.PanelPlacement)) value.PanelPlacement = "Top";
+        value.PanelMonitor ??= "";
+        value.PanelX = double.IsFinite(value.PanelX) ? Math.Clamp(value.PanelX, 0, 1) : .5;
+        value.PanelY = double.IsFinite(value.PanelY) ? Math.Clamp(value.PanelY, 0, 1) : 0;
+        value.EdgeRevealDelay = Math.Clamp(value.EdgeRevealDelay, 150, 1500);
         value.GlassOpacity = Math.Clamp(value.GlassOpacity, 0, 100);
         value.ScrollDelay = Math.Clamp(value.ScrollDelay, 100, 400);
         value.CaptureMonitor ??= ""; value.UpdateFeedUrl ??= "";

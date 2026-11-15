@@ -11,6 +11,11 @@ internal static class Program
     [STAThread]
     static void Main(string[] args)
     {
+        if (args.Contains("--side-actions-only")) { CompactActionsChecks.Run("Left"); return; }
+        if (args.Length == 2 && args[0] == "--guided-scroll-host") { GuidedScrollChecks.Host(args[1]); return; }
+        if (args.Contains("--guided-scroll-only")) { GuidedScrollChecks.Run(); return; }
+        if (args.Contains("--dock-only")) { DockChecks.Run(); return; }
+        if (args.Contains("--dock-geometry-only")) { DockChecks.Geometry(); return; }
         if (args.Contains("--scroll-match-only")) { CheckScroll(); ScrollChecks.RunMatcherOnly(); return; }
         if (args.Contains("--compact-actions-only")) { CompactActionsChecks.Run(); return; }
         if (args.Contains("--capture-cancel-only")) { CaptureCancelChecks.Run(); return; }
@@ -200,6 +205,7 @@ internal static class Program
     {
         var window = new MainWindow();
         ((AppSettings)typeof(MainWindow).GetField("settings", flags)!.GetValue(window)!).KeepInTray = true;
+        ((AppSettings)typeof(MainWindow).GetField("settings", flags)!.GetValue(window)!).PanelCollapsed = false;
         ((ItemsControl)window.FindName("CompactCards")).ItemsSource = new[] { new CaptureItem { FilePath = file, Preview = preview } };
         window.Show();
         typeof(MainWindow).GetMethod("Collapse_Click", flags)!.Invoke(window, new object[] { window, new RoutedEventArgs() });
@@ -379,7 +385,7 @@ internal static class Program
                     }
                     var frames = (System.Collections.IEnumerable)type.GetField("frames", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(session)!;
                     var n = 0; foreach (var frame in frames) { var bmp = (System.Drawing.Bitmap)frame.GetType().GetField("Item1")!.GetValue(frame)!; bmp.Save(System.IO.Path.Combine(System.IO.Path.GetTempPath(), "clipsa-live-" + n++ + ".png")); }
-                    session.DialogResult = false;
+                    session.Close();
                 }
             }
         };
@@ -387,7 +393,7 @@ internal static class Program
         string? result = null;
         try
         {
-            session.ShowDialog();
+            type.GetMethod("ShowCapture")!.Invoke(session, null);
             result = (string?)type.GetProperty("ResultPath")!.GetValue(session);
             Require(result is not null, "live manual scroll produces an image");
             using var stream = System.IO.File.OpenRead(result!);

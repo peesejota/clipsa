@@ -80,7 +80,7 @@ internal static class CaptureCancelChecks
         };
         timeout.Tick += (_, _) => { timeout.Stop(); expired = true; window.Close(); };
         window.Loaded += (_, _) => { trigger.Start(); timeout.Start(); };
-        try { Require(window.ShowDialog() != true, "cancelled modal result"); }
+        try { var capture = window.GetType().GetMethod("ShowCapture"); var result = capture is null ? window.ShowDialog() : (bool?)capture.Invoke(window, null); Require(result != true, "cancelled capture result"); }
         finally { trigger.Stop(); timeout.Stop(); if (window.IsVisible) window.Close(); }
         if (failure is not null) throw failure;
         Require(!expired, "cancel gesture closes modal promptly");
