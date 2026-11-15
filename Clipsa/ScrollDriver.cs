@@ -11,10 +11,7 @@ internal sealed class ScrollDriver
     private readonly uint process;
     private ScrollPattern? pattern;
     private bool searched;
-    public bool AtEnd
-    {
-        get { try { return pattern is not null && pattern.Current.VerticalScrollPercent >= 99.9; } catch (Exception ex) when (ex is InvalidOperationException or COMException) { return false; } }
-    }
+    public bool AtEnd { get; private set; }
     private readonly CancellationToken cancellation;
     public ScrollDriver(IntPtr window, IntPtr content, Rectangle region, CancellationToken cancellation)
     {
@@ -37,8 +34,8 @@ internal sealed class ScrollDriver
         FindPattern();
         if (pattern is not null)
         {
-            try { pattern.Scroll(ScrollAmount.NoAmount, ScrollAmount.SmallIncrement); return; }
-            catch (Exception ex) when (ex is ElementNotAvailableException or InvalidOperationException or COMException) { pattern = null; }
+            try { pattern.Scroll(ScrollAmount.NoAmount, ScrollAmount.SmallIncrement); AtEnd = pattern.Current.VerticalScrollPercent >= 99.9; return; }
+            catch (Exception ex) when (ex is ElementNotAvailableException or InvalidOperationException or COMException) { pattern = null; AtEnd = false; }
         }
         var coordinates = new IntPtr(unchecked((point.Y & 0xFFFF) << 16 | (point.X & 0xFFFF)));
         var wheel = new IntPtr(unchecked(-30 << 16));
