@@ -2,6 +2,8 @@
 
 ## Revisión 0.6.1 · 15 de noviembre de 2026
 
+Paquetes finales del [run 43752779490](https://github.com/peesejota/clipsa/actions/runs/43752779490), commit `77b774b3c09b57ae39bb460fe82b401c25f1e520`. CI superó actualizador, atajos, matcher, geometría, instalación/reinstalación/desinstalación y portable extraída. La [Release 0.6.1 beta](https://github.com/peesejota/clipsa/releases/tag/v0.6.1-beta.1) contiene seis archivos cuyas huellas coinciden con los digests públicos; el manifiesto descargado también coincide. Canal activado después de verificar los archivos. Kaspersky 21.27: 1.003 objetos, cero detecciones, sospechas, omisiones o errores; informe local `docs/verificacion/kaspersky-0.6.1-scan.txt`. Los manifiestos tienen firma RSA; EXE e instalador siguen sin Authenticode y la alerta histórica de comportamiento permanece pendiente.
+
 Compilación local sin advertencias ni errores. Pasaron las pruebas completas de edición, recorte y teclado real, transparencia independiente, iconos, arrastre y scroll controlado. El scroll continuo pasó 15 desplazamientos de 16 DIP cada 90 ms (250 × 525 px) y diez de 80 DIP cada 60 ms (250 × 1225 px), conservando las primeras filas y el historial después de saltos rechazados e inversión de sentido.
 
 La prueba de guiado usa una ventana de otro proceso: rueda y flecha abajo reales, guiado, parada y finalización, comprobando la altura contra el desplazamiento y las primeras filas contra el inicio. Se añadió un proveedor de accesibilidad de QA con movimiento animado en pasos de 2 DIP cada 16 ms, a escala 125 %: pasó con salida de 350 × 521 px, incluida comprobación de que el movimiento terminó antes de cerrar. Esto no certifica físicamente todos los trackpads ni todas las aplicaciones.
