@@ -29,6 +29,7 @@ public partial class SettingsWindow : Window
         DockPositionBox.DisplayMemberPath = "Label"; DockPositionBox.SelectedValuePath = "Value";
         var labels = new[] { "Arriba · centro", "Abajo · centro", "Lateral izquierdo", "Lateral derecho", "Esquina superior izquierda", "Esquina superior derecha", "Esquina inferior izquierda", "Esquina inferior derecha", "Posición libre" };
         for (var i = 0; i < DockGeometry.Positions.Length; i++) DockPositionBox.Items.Add(new DockChoice(DockGeometry.Positions[i], labels[i]));
+        DockPositionBox.SelectionChanged += (_, _) => DockVerticalBox.IsEnabled = (DockPositionBox.SelectedItem as DockChoice)?.Value == "Custom";
         DockMonitorBox.DisplayMemberPath = "Label"; DockMonitorBox.SelectedValuePath = "Device";
         DockMonitorBox.Items.Add(new MonitorChoice("", "Automática · conservar la pantalla de la barra"));
         for (var i = 0; i < screens.Length; i++) DockMonitorBox.Items.Add(new MonitorChoice(screens[i].DeviceName, MonitorLabel(screens[i], i)));

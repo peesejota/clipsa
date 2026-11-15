@@ -1,5 +1,11 @@
 # Cambios
 
+## 0.6.2 · beta · 15 de noviembre de 2026
+
+- Corrige la orientación al colocar la barra arriba, abajo o en las esquinas: siempre horizontal, incluso con una preferencia vertical guardada. Los laterales siguen siendo verticales.
+- El ajuste de orientación manual queda limitado a posición libre y se desactiva al elegir un borde fijo.
+- Regresión de los nueve anclajes con ambas preferencias guardadas, dimensiones reales de ventana, miniaturas compactas y ajustes.
+
 ## 0.6.1 · beta · 15 de noviembre de 2026
 
 - Cabecera, separador y esquinas de la barra adaptados al borde superior, inferior o lateral; las capturas mantienen su orientación.

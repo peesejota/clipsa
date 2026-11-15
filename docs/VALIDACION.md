@@ -1,5 +1,11 @@
 # Validación de Clipsa
 
+## Revisión 0.6.2 · 15 de noviembre de 2026
+
+Corrige la prioridad de la orientación: los anclajes superior, inferior y esquinas son horizontales aunque `PanelVertical` esté guardado como verdadero; izquierda/derecha son verticales y sólo posición libre usa esa preferencia. Compilación sin advertencias ni errores.
+
+`--dock-layout-only` pasó con HWND reales en los nueve anclajes y ambas preferencias guardadas: dimensiones extendidas, cabecera en su borde, miniaturas compactas en los cuatro bordes y control de orientación habilitado sólo en posición libre. La prueba pura de esa regla también forma parte de `--dock-geometry-only` en CI. Las acciones compactas horizontales y laterales pasaron. Las repeticiones del hover con la preferencia antigua se interrumpieron por movimiento del cursor fuera de la pestaña; se validó la regresión de orientación con el modo sin entrada del puntero, sin declarar superadas esas repeticiones de hover.
+
 ## Revisión 0.6.1 · 15 de noviembre de 2026
 
 Paquetes finales del [run 43752779490](https://github.com/peesejota/clipsa/actions/runs/43752779490), commit `77b774b3c09b57ae39bb460fe82b401c25f1e520`. CI superó actualizador, atajos, matcher, geometría, instalación/reinstalación/desinstalación y portable extraída. La [Release 0.6.1 beta](https://github.com/peesejota/clipsa/releases/tag/v0.6.1-beta.1) contiene seis archivos cuyas huellas coinciden con los digests públicos; el manifiesto descargado también coincide. Canal activado después de verificar los archivos. Kaspersky 21.27: 1.003 objetos, cero detecciones, sospechas, omisiones o errores; informe local `docs/verificacion/kaspersky-0.6.1-scan.txt`. Los manifiestos tienen firma RSA; EXE e instalador siguen sin Authenticode y la alerta histórica de comportamiento permanece pendiente.

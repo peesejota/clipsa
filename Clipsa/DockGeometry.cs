@@ -5,6 +5,12 @@ namespace Clipsa;
 public static class DockGeometry
 {
     public static readonly string[] Positions = ["Top", "Bottom", "Left", "Right", "TopLeft", "TopRight", "BottomLeft", "BottomRight", "Custom"];
+    public static bool IsVertical(string position, bool freeVertical) => position switch
+    {
+        "Left" or "Right" => true,
+        "Custom" => freeVertical,
+        _ => false
+    };
     public static Rectangle Place(Rectangle work, int width, int height, string position, double x, double y)
     {
         width = Math.Clamp(width, 1, work.Width); height = Math.Clamp(height, 1, work.Height);

@@ -17,6 +17,7 @@ internal static class Program
         if (args.Contains("--guided-smooth-only")) { GuidedScrollChecks.Run(true); return; }
         if (args.Contains("--guided-scroll-only")) { GuidedScrollChecks.Run(); return; }
         if (args.Contains("--dock-only")) { DockChecks.Run(); return; }
+        if (args.Contains("--dock-layout-only")) { DockChecks.Run(true); return; }
         if (args.Contains("--dock-geometry-only")) { DockChecks.Geometry(); return; }
         if (args.Contains("--scroll-match-only")) { CheckScroll(); ScrollChecks.RunMatcherOnly(); return; }
         if (args.Contains("--compact-actions-only")) { CompactActionsChecks.Run(); return; }

@@ -16,7 +16,7 @@ public partial class MainWindow
     private bool? lastDockVertical;
     private long edgeEntered, dockLeft;
     private Rectangle fullDockBounds, hiddenDockBounds;
-    private bool SideDock => settings.PanelPlacement is "Left" or "Right" || settings.PanelVertical;
+    private bool SideDock => DockGeometry.IsVertical(settings.PanelPlacement, settings.PanelVertical);
     private void InitializeDock()
     {
         collapsed = settings.PanelCollapsed;
