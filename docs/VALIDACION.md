@@ -6,6 +6,8 @@ Paquetes del [run 43753877961](https://github.com/peesejota/clipsa/actions/runs/
 
 Corrige la prioridad de la orientación: los anclajes superior, inferior y esquinas son horizontales aunque `PanelVertical` esté guardado como verdadero; izquierda/derecha son verticales y sólo posición libre usa esa preferencia. Compilación sin advertencias ni errores.
 
+Tras caducar la caché de GitHub, `--public-channel-only` obtuvo 0.6.2 del enlace predeterminado de la app y verificó firma de manifiesto y SHA256 de ambas descargas: instalador 53.726.725 bytes y portable 76.397.198 bytes. Descarga sólo en memoria, sin guardar ni ejecutar el código descargado.
+
 `--dock-layout-only` pasó con HWND reales en los nueve anclajes y ambas preferencias guardadas: dimensiones extendidas, cabecera en su borde, miniaturas compactas en los cuatro bordes y control de orientación habilitado sólo en posición libre. La prueba pura de esa regla también forma parte de `--dock-geometry-only` en CI. Las acciones compactas horizontales y laterales pasaron. Las repeticiones del hover con la preferencia antigua se interrumpieron por movimiento del cursor fuera de la pestaña; se validó la regresión de orientación con el modo sin entrada del puntero, sin declarar superadas esas repeticiones de hover.
 
 ## Revisión 0.6.1 · 15 de noviembre de 2026
