@@ -13,6 +13,7 @@ public partial class MainWindow
 {
     private readonly DispatcherTimer dockTimer = new() { Interval = TimeSpan.FromMilliseconds(40) };
     private bool autoHidden;
+    private bool? lastDockVertical;
     private long edgeEntered, dockLeft;
     private Rectangle fullDockBounds, hiddenDockBounds;
     private bool SideDock => settings.PanelPlacement is "Left" or "Right" || settings.PanelVertical;
@@ -45,9 +46,12 @@ public partial class MainWindow
         MainHeader.ColumnDefinitions[0].Width = new GridLength(vertical ? 0 : 120);
         MainHeader.ColumnDefinitions[2].Width = new GridLength(vertical ? 90 : 120);
         RootBorder.Padding = smallSide ? new Thickness(4) : collapsed ? new Thickness(24, 5, 24, 5) : vertical ? new Thickness(12) : new Thickness(24, 12, 24, 20);
-        var factory = new FrameworkElementFactory(typeof(StackPanel));
-        factory.SetValue(StackPanel.OrientationProperty, vertical ? Orientation.Vertical : Orientation.Horizontal);
-        Cards.ItemsPanel = new ItemsPanelTemplate(factory);
+        if (lastDockVertical != vertical)
+        {
+            var factory = new FrameworkElementFactory(typeof(StackPanel));
+            factory.SetValue(StackPanel.OrientationProperty, vertical ? Orientation.Vertical : Orientation.Horizontal);
+            Cards.ItemsPanel = new ItemsPanelTemplate(factory); lastDockVertical = vertical;
+        }
         CardsScroll.HorizontalScrollBarVisibility = vertical ? ScrollBarVisibility.Disabled : ScrollBarVisibility.Hidden;
         CardsScroll.VerticalScrollBarVisibility = vertical ? ScrollBarVisibility.Auto : ScrollBarVisibility.Disabled;
         CollapseButton.Content = collapsed ? "⌄" : "⌃";
