@@ -6,6 +6,8 @@ Paquetes del [run 43936594265](https://github.com/peesejota/clipsa/actions/runs/
 
 Referencia fijada: ShareX 22.4.0, commit `08bfff15e748a945944e609aca7faffbe888c7af`. Adaptados Capture/DrawNative de WindowsImageInterop, CombineImages de ScrollingCaptureManager y métodos de entrada de InputManager/ScrollingCaptureManager. Avisos y modificaciones en licenses/ShareX-PROVENANCE.md; consentimiento del autor para distribuir la obra combinada bajo GPL-3.0. El motor anterior ScrollStitcher se elimina, no se usa como fallback.
 
+Verificación final del canal predeterminado con `--public-channel-only`: entregó 0.8.0 y verificó firma y SHA256 de instalador (53.782.969 bytes) y portable (76.445.025 bytes). Descarga sólo en memoria, sin guardar ni ejecutar el código descargado.
+
 Pruebas puras: resultado completo comparado píxel a píxel con el documento esperado, cabecera/pie fijo, múltiples uniones acumuladas, final repetido sin duplicación, rechazo y recuperación tras una vista ajena, avance estimado sólo cuando se habilita y marcado, áreas estrechas y cancelación. Prueba nativa: coordenadas y color BGRA correctos, alfa opaco, memoria independiente y 120 capturas consecutivas con 19 → 19 identificadores GDI. Se corrigió una dependencia de memoria nativa temporal detectada en la adaptación inicial antes de distribuirla.
 
 Pruebas locales sobre destinos reales: scroll continuo 250 × 525 y 250 × 1225 px; rueda/flechas mantenidas y guardado al soltar 350 × 380 px; Escape/clic derecho sin PNG residual; destino animado 350 × 561 px con altura correspondiente al desplazamiento final y primeras filas conservadas. La batería completa de edición, recorte/teclado, arrastre, transparencia e iconos también pasó.
