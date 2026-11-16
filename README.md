@@ -1,23 +1,23 @@
-# Clipsa 0.7.0 · beta para Windows
+# Clipsa 0.8.0 · beta para Windows
 
-Capturas, edición y scroll manual en una barra flotante de cristal. Autor: **Francisco Serrano Jiménez**.
+Capturas, edición y scroll automático/manual en una barra flotante de cristal. Autor: **Francisco Serrano Jiménez**. Desde 0.8.0 incorpora código de **ShareX 22.4.0**, © ShareX Team, adaptado a Clipsa. La obra combinada se distribuye bajo **GPL-3.0**; [licencia y créditos](THIRD-PARTY-NOTICES.md).
 
 [Descargas y versiones](https://github.com/peesejota/clipsa/releases) · [Uso](docs/USO.md) · [Actualizaciones](docs/ACTUALIZACIONES.md) · [Privacidad](docs/PRIVACIDAD.md)
 
-**Descargar 0.7.0 beta:** [Instalador para Windows x64](https://github.com/peesejota/clipsa/releases/download/v0.7.0-beta.1/Clipsa-0.7.0-win-x64-setup.exe) · [ZIP portable](https://github.com/peesejota/clipsa/releases/download/v0.7.0-beta.1/Clipsa-0.7.0-win-x64-portable.zip) · [Cambios y archivos de verificación](https://github.com/peesejota/clipsa/releases/tag/v0.7.0-beta.1).
+**Descargar 0.8.0 beta:** [Instalador para Windows x64](https://github.com/peesejota/clipsa/releases/download/v0.8.0-beta.1/Clipsa-0.8.0-win-x64-setup.exe) · [ZIP portable](https://github.com/peesejota/clipsa/releases/download/v0.8.0-beta.1/Clipsa-0.8.0-win-x64-portable.zip) · [Cambios y archivos de verificación](https://github.com/peesejota/clipsa/releases/tag/v0.8.0-beta.1).
 
 ## Instalada o portable
 
 Destino probado: Windows 11 x64. Ambos paquetes incluyen .NET/WPF 10.0.15; no necesitas instalar .NET por separado.
 
-- **Instalador:** `Clipsa-0.7.0-win-x64-setup.exe`. Instalación por usuario sin administrador; ajustes en `%APPDATA%\Clipsa`.
-- **Portable:** extrae todo `Clipsa-0.7.0-win-x64-portable.zip` y abre `Clipsa.exe`. Conserva `portable.mode`. Los ajustes, sesiones y actualizaciones están en `data` dentro de la carpeta portable. No basta con copiar el EXE.
+- **Instalador:** `Clipsa-0.8.0-win-x64-setup.exe`. Instalación por usuario sin administrador; ajustes en `%APPDATA%\Clipsa`.
+- **Portable:** extrae todo `Clipsa-0.8.0-win-x64-portable.zip` y abre `Clipsa.exe`. Conserva `portable.mode`. Los ajustes, sesiones y actualizaciones están en `data` dentro de la carpeta portable. No basta con copiar el EXE.
 
 Guarda las capturas pendientes y elige **Salir** desde la bandeja antes de sustituir una versión antigua. Las versiones 0.4.x necesitan esta primera instalación manual para recibir el nuevo sistema de actualizaciones.
 
 ## Funciones
 
-- Scroll guiado con **Capturar más / Parar scroll**, además de rueda, trackpad y flechas en la página.
+- Motor de capturas adaptado de ShareX: captura nativa común para pantalla/región/scroll y unión de filas contra la imagen acumulada.
 - Barra en bordes, esquinas o posición libre arrastrando el nombre; formato vertical y monitor independiente.
 - Ocultación opcional al colapsar y despliegue al mantener el ratón sobre el borde el tiempo configurado.
 
@@ -25,7 +25,7 @@ Guarda las capturas pendientes y elige **Salir** desde la bandeja antes de susti
 - Captura de pantalla o región; atajos configurables. Impr Pant + 1/2/3 como valores iniciales, manteniendo la tecla o pulsándola antes del número; se conservan los atajos ya guardados.
 - Barra centrada, fondo transparente, modo compacto, reordenación y arrastre a carpetas u otras aplicaciones.
 - Edición con lápiz, resaltador, goma, texto, formas, recorte libre/proporcional, rotación y deshacer/rehacer.
-- Scroll manteniendo pulsado: marca el área, empieza a desplazar sin soltar y suelta para terminar. Marco sobre la página, sin ventana de previsualización. También admite área fija y guardado parcial explícito.
+- Scroll automático al soltar la selección, con métodos de rueda, flecha abajo, Av. página y mensaje de scroll. **Parar** detiene el avance y **Terminar y guardar** conserva el resultado. También se mantiene el modo manual: desplaza sin soltar y suelta para terminar, con marco sobre la página.
 - Bandeja, inicio con Windows opcional y recuperación local de sesiones interrumpidas.
 
 El scroll captura lo que aparece en pantalla, no el documento interno del navegador: no puede reconstruir zonas que un salto brusco ha omitido. Contenido animado o repetido puede impedir una unión fiable. [Limitaciones](docs/LIMITACIONES.md).
@@ -49,3 +49,5 @@ dotnet run --project verification/Clipsa.Checks.csproj --configuration Release -
 Las pruebas gráficas necesitan escritorio interactivo; el resultado de CI no sustituye las pruebas en otro PC limpio. [Resultados y alcance](docs/VALIDACION.md).
 
 Clipsa para Windows es una reescritura WPF inspirada en [Tendedero de Alejandro Buján](https://github.com/alejandrobujan/tendedero). Se conserva su aviso original en `licenses/`, sin atribuirle esta aplicación Windows ni usar su nombre o icono. [Licencia](LICENSE) · [Avisos de terceros](THIRD-PARTY-NOTICES.md).
+
+[Compilar desde el código fuente](docs/COMPILAR.md) · [Procedencia del motor ShareX](licenses/ShareX-PROVENANCE.md). Las versiones anteriores mantienen sus términos MIT originales.

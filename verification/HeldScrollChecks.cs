@@ -61,14 +61,14 @@ internal static class HeldScrollChecks
                     else Batch(MouseMove(bounds.Right, bounds.Bottom), new NativeInput { Data = new InputData { Mouse = new MouseInput { Flags = 0x800, MouseData = unchecked((uint)-120) } } });
                     stage = 3;
                 }
-                else if (stage == 3 && session is not null && type.GetField("previous", flags)!.GetValue(session) is byte[] pixels)
+                else if (stage == 3 && session is not null && type.GetProperty("InitialPixels")!.GetValue(session) is byte[] pixels)
                 {
                     var selected = (System.Drawing.Rectangle)type.GetField("region", flags)!.GetValue(session)!;
                     if (Math.Abs(selected.Left - bounds.Left) > 2 || Math.Abs(selected.Top - bounds.Top) > 2 || Math.Abs(selected.Right - bounds.Right) > 2 || Math.Abs(selected.Bottom - bounds.Bottom) > 2) throw new Exception($"Selection coordinates changed during input: wanted={bounds}, actual={selected}, cursor={System.Windows.Forms.Cursor.Position}.");
                     bounds = selected;
-                    using (var initialImage = before.Clone(new System.Drawing.Rectangle(bounds.X - sampleBounds.X, bounds.Y - sampleBounds.Y, bounds.Width, bounds.Height), before.PixelFormat)) expected = ScrollStitcher.Pixels(initialImage);
+                    using (var initialImage = before.Clone(new System.Drawing.Rectangle(bounds.X - sampleBounds.X, bounds.Y - sampleBounds.Y, bounds.Width, bounds.Height), before.PixelFormat)) expected = Clipsa.Capture.CapturePixels.Read(initialImage);
                     baseline = pixels;
-                    if (!(bool)type.GetField("finishOnRelease", flags)!.GetValue(session)!) throw new Exception("Selection did not enter held capture mode.");
+                    if (!(bool)type.GetField("held", flags)!.GetValue(session)!) throw new Exception("Selection did not enter held capture mode.");
                     visibleFrame = type.GetField("selectionFrame", flags)!.GetValue(session) is Window { IsVisible: true };
                     passedThrough = GetAncestor(WindowFromPoint(new NativePoint { X = bounds.Left + bounds.Width / 2, Y = bounds.Top + bounds.Height / 2 }), 2) == hostHandle;
                     SetCursorPos(bounds.Left + bounds.Width / 2, bounds.Top + bounds.Height / 2);
@@ -109,11 +109,11 @@ internal static class HeldScrollChecks
             {
                 var channels = new int[4]; var minX = bounds.Width; var minY = bounds.Height; var maxX = 0; var maxY = 0;
                 if (expected?.Length == baseline?.Length) for (var i = 0; i < expected!.Length; i++) if (expected[i] != baseline![i]) { channels[i % 4]++; var pixel = i / 4; minX = Math.Min(minX, pixel % bounds.Width); maxX = Math.Max(maxX, pixel % bounds.Width); minY = Math.Min(minY, pixel / bounds.Width); maxY = Math.Max(maxY, pixel / bounds.Width); }
-                throw new Exception($"Guide or controls contaminated initial screenshot: channels={string.Join(',', channels)}, box={minX},{minY}..{maxX},{maxY}, match={(baseline?.Length == expected?.Length ? ScrollStitcher.Match(expected!, baseline!, bounds.Width, bounds.Height) : default)}.");
+                throw new Exception($"Guide or controls contaminated initial screenshot: channels={string.Join(',', channels)}, box={minX},{minY}..{maxX},{maxY}.");
             }
             var final = Read(); using var image = new System.Drawing.Bitmap(result);
             if (Math.Abs(image.Height - bounds.Height - final.Offset * final.Scale) > 2) throw new Exception("Held capture lost part of the scroll.");
-            var joined = ScrollStitcher.Pixels(image);
+            var joined = Clipsa.Capture.CapturePixels.Read(image);
             if (!expected!.AsSpan(0, bounds.Width * 20 * 4).SequenceEqual(joined.AsSpan(0, bounds.Width * 20 * 4))) throw new Exception("Held capture lost initial rows.");
             if (app.Windows.Cast<Window>().Any(w => w.GetType().Name == "ScrollRegionFrame")) throw new Exception("Guide remained open after finishing.");
             Console.WriteLine($"Held selection started with {(keyFirst ? "arrow key" : "wheel")}, page received wheel+keyboard, guide passed through and was excluded, release saved complete {image.Width} x {image.Height}: OK.");

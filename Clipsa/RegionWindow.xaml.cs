@@ -18,7 +18,7 @@ public partial class RegionWindow : Window
     {
         InitializeComponent();
         this.scrollGesture = scrollGesture;
-        if (scrollGesture) SelectionHint.Text = "Marca el área y, sin soltar, usa rueda, trackpad o flechas · Suelta para terminar · Esc cancela";
+        if (scrollGesture) SelectionHint.Text = "Arrastra y suelta: scroll automático · O desplaza sin soltar para el modo manual · Esc cancela";
         PreviewMouseWheel += (_, e) =>
         {
             if (!scrollGesture || start is null || e.LeftButton != MouseButtonState.Pressed) return;
@@ -61,9 +61,7 @@ public partial class RegionWindow : Window
             try
             {
                 Native.DwmFlush();
-                scrollBaseline = new System.Drawing.Bitmap(right - left, bottom - top, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
-                using var graphics = System.Drawing.Graphics.FromImage(scrollBaseline);
-                graphics.CopyFromScreen(left, top, 0, 0, scrollBaseline.Size);
+                scrollBaseline = Capture.DesktopCapture.Capture(new System.Drawing.Rectangle(left, top, right - left, bottom - top));
             }
             catch (Exception ex) { scrollBaseline?.Dispose(); scrollBaseline = null; AppDiagnostics.Log(ex, "Guardar inicio de scroll antes de cerrar selección"); }
         }

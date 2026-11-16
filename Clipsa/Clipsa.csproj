@@ -4,12 +4,14 @@
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0-windows</TargetFramework>
     <Nullable>enable</Nullable>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
     <UseWindowsForms>true</UseWindowsForms>
     <AssemblyName>Clipsa</AssemblyName>
     <RootNamespace>Clipsa</RootNamespace>
-    <Version>0.7.0</Version>
+    <Version>0.8.0</Version>
+    <PackageLicenseExpression>GPL-3.0-only</PackageLicenseExpression>
     <RuntimeFrameworkVersion>10.0.15</RuntimeFrameworkVersion>
     <Description>Clipsa: capturas, edición y scroll manual para Windows.</Description>
     <Product>Clipsa</Product>
@@ -24,6 +26,8 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <EmbeddedResource Include="..\LICENSE" LogicalName="Clipsa.Legal.License" />
+    <EmbeddedResource Include="..\THIRD-PARTY-NOTICES.md" LogicalName="Clipsa.Legal.Credits" />
     <Resource Include="Brand\clipsa-icon.png" />
     <Resource Include="Brand\clipsa-icon.ico" />
   </ItemGroup>

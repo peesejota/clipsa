@@ -1,5 +1,13 @@
 # Cambios
 
+## 0.8.0 · beta · 16 de noviembre de 2026
+
+- Sustituye el motor anterior por código adaptado de ShareX 22.4.0: captura GDI nativa compartida por pantalla, región y scroll; unión de filas contra la imagen acumulada, con detección de pies fijos y vistas repetidas.
+- Scroll automático tras soltar la selección, con rueda, flecha abajo, Av. página o mensaje de scroll, pausa entre avances y espera de la animación. Se conserva el gesto manual mantenido y la cancelación con Escape/clic derecho.
+- Uniones estimadas opcionales, marcadas y confirmadas antes de guardar. Se conserva el resultado anterior si no hay coincidencia; límites de memoria/tamaño y cancelación fuera del hilo de interfaz.
+- Elimina ScrollStitcher y la lógica anterior de coincidencias de la ventana. La interfaz WPF queda como adaptador del motor.
+- Clipsa pasa a GPL-3.0 con autorización del autor, conserva los créditos de ShareX y las licencias MIT previas, e incluye licencia/créditos/código fuente accesibles desde Ajustes.
+
 ## 0.7.0 · beta · 15 de noviembre de 2026
 
 - Captura con scroll manteniendo el botón: dibuja el área y empieza a desplazar con rueda/trackpad o flechas antes de soltar; el primer movimiento fija la selección y soltar termina la captura.

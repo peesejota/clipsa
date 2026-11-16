@@ -1,5 +1,15 @@
 # Validación de Clipsa
 
+## Revisión 0.8.0 · 16 de noviembre de 2026
+
+Referencia fijada: ShareX 22.4.0, commit `08bfff15e748a945944e609aca7faffbe888c7af`. Adaptados Capture/DrawNative de WindowsImageInterop, CombineImages de ScrollingCaptureManager y métodos de entrada de InputManager/ScrollingCaptureManager. Avisos y modificaciones en licenses/ShareX-PROVENANCE.md; consentimiento del autor para distribuir la obra combinada bajo GPL-3.0. El motor anterior ScrollStitcher se elimina, no se usa como fallback.
+
+Pruebas puras: resultado completo comparado píxel a píxel con el documento esperado, cabecera/pie fijo, múltiples uniones acumuladas, final repetido sin duplicación, rechazo y recuperación tras una vista ajena, avance estimado sólo cuando se habilita y marcado, áreas estrechas y cancelación. Prueba nativa: coordenadas y color BGRA correctos, alfa opaco, memoria independiente y 120 capturas consecutivas con 19 → 19 identificadores GDI. Se corrigió una dependencia de memoria nativa temporal detectada en la adaptación inicial antes de distribuirla.
+
+Pruebas locales sobre destinos reales: scroll continuo 250 × 525 y 250 × 1225 px; rueda/flechas mantenidas y guardado al soltar 350 × 380 px; Escape/clic derecho sin PNG residual; destino animado 350 × 561 px con altura correspondiente al desplazamiento final y primeras filas conservadas. La batería completa de edición, recorte/teclado, arrastre, transparencia e iconos también pasó.
+
+Chrome real, perfil temporal y página servida sólo por localhost: 15 desplazamientos continuos, salida 902 × 1081 px y 456 CSS px; automático con entradas nativas de rueda, salida 902 × 1136 px y 500 CSS px, contrastando altura con el desplazamiento comunicado por la página. Se corrigió el servidor de QA para continuar después de conexiones HTTP canceladas por el navegador y se dio foco explícito a su ventana antes de las entradas; los primeros intentos fallidos no se presentan como éxito. No se usó el perfil del usuario ni se certifican todos los dispositivos físicos.
+
 ## Revisión 0.7.0 · 15 de noviembre de 2026
 
 Paquetes del [run 43759396999](https://github.com/peesejota/clipsa/actions/runs/43759396999), commit `cabec17cf5732070f03686358dd51855d6adf2a1`, con las comprobaciones de actualizador, atajos, matcher, geometría, instalación/reinstalación/desinstalación y portable extraída superadas. Publicada la [Release 0.7.0 beta](https://github.com/peesejota/clipsa/releases/tag/v0.7.0-beta.1); las seis huellas coinciden con los digests públicos y el manifiesto descargado coincide con el local. Canal activado tras verificar los archivos. Kaspersky 21.27: 1.003 objetos, cero detecciones, sospechas, omisiones o errores; informe local `docs/verificacion/kaspersky-0.7.0-scan.txt`. Los manifiestos están firmados con RSA; EXE e instalador siguen sin Authenticode y la alerta histórica de comportamiento permanece pendiente.

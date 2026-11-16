@@ -9,14 +9,12 @@ using Clipsa;
 internal static class ScrollChecks
 {
     private static readonly BindingFlags Private = BindingFlags.NonPublic | BindingFlags.Instance;
-    public static void RunMatcherOnly() { CheckTextPage(); CheckSidebars(); }
+    public static void RunMatcherOnly() => CheckTextPage();
     public static void Run()
     {
         CheckTextPage();
-        CheckSidebars();
         CheckContinuous();
         CheckContinuous(60, 80, 10);
-        CheckAcceptHistory();
         if (Environment.GetEnvironmentVariable("CLIPSA_WEB_SCROLL_QA") == "1") BrowserScrollChecks.Run();
     }
     private static void CheckTextPage()
@@ -37,38 +35,12 @@ internal static class ScrollChecks
         using var next = page.Clone(new System.Drawing.Rectangle(0, 153, 800, 600), page.PixelFormat);
         // A moving scrollbar must not invalidate the actual page content.
         using (var graphics = System.Drawing.Graphics.FromImage(next)) graphics.FillRectangle(System.Drawing.Brushes.Gray, 786, 230, 10, 100);
-        var match = ScrollStitcher.Match(ScrollStitcher.Pixels(first), ScrollStitcher.Pixels(next), 800, 600);
-        Require(match.Kind == ScrollStitcher.MatchKind.Matched && match.Offset == 73, "sparse text, white margins and moving scrollbar: " + match);
+        using var composer = new Clipsa.Capture.ShareXScrollComposer();
+        composer.Append(first);
+        Require(composer.Append(next) == Clipsa.Capture.ScrollCombineStatus.Appended && composer.Height == 673, "ShareX joins text despite the moving scrollbar");
         using var fast = page.Clone(new System.Drawing.Rectangle(0, 600, 800, 600), page.PixelFormat);
-        var jump = ScrollStitcher.Match(ScrollStitcher.Pixels(first), ScrollStitcher.Pixels(fast), 800, 600);
-        Require(jump.Kind == ScrollStitcher.MatchKind.Matched && jump.Offset == 520, "fast scroll keeps a short but valid overlap: " + jump);
+        Require(composer.Append(fast) == Clipsa.Capture.ScrollCombineStatus.Appended && composer.Height == 1120, "ShareX keeps a short valid overlap");
         Console.WriteLine("Page-like text, white margins and moving scrollbar: OK");
-    }
-    private static void CheckSidebars()
-    {
-        const int width = 600, height = 400;
-        var pixels = new byte[width * 1200 * 4]; new Random(918).NextBytes(pixels);
-        for (var i = 3; i < pixels.Length; i += 4) pixels[i] = 255;
-        using var document = new System.Drawing.Bitmap(width, 1200, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
-        var data = document.LockBits(new System.Drawing.Rectangle(0, 0, width, 1200), System.Drawing.Imaging.ImageLockMode.WriteOnly, document.PixelFormat);
-        try { System.Runtime.InteropServices.Marshal.Copy(pixels, 0, data.Scan0, pixels.Length); } finally { document.UnlockBits(data); }
-        foreach (var sides in new[] { (Left: 140, Right: 0), (Left: 0, Right: 140), (Left: 100, Right: 100), (Left: 260, Right: 0) })
-        {
-            using var first = document.Clone(new System.Drawing.Rectangle(0, 0, width, height), document.PixelFormat);
-            using var next = document.Clone(new System.Drawing.Rectangle(0, 73, width, height), document.PixelFormat);
-            using var unrelated = document.Clone(new System.Drawing.Rectangle(0, 700, width, height), document.PixelFormat);
-            foreach (var image in new[] { first, next, unrelated })
-            {
-                using var graphics = System.Drawing.Graphics.FromImage(image);
-                if (sides.Left > 0) graphics.DrawImage(document, new System.Drawing.Rectangle(0, 0, sides.Left, height), new System.Drawing.Rectangle(0, 0, sides.Left, height), System.Drawing.GraphicsUnit.Pixel);
-                if (sides.Right > 0) graphics.DrawImage(document, new System.Drawing.Rectangle(width - sides.Right, 0, sides.Right, height), new System.Drawing.Rectangle(width - sides.Right, 0, sides.Right, height), System.Drawing.GraphicsUnit.Pixel);
-            }
-            var match = ScrollStitcher.Match(ScrollStitcher.Pixels(first), ScrollStitcher.Pixels(next), width, height);
-            Require(match.Kind == ScrollStitcher.MatchKind.Matched && match.Offset == 73, $"scroll with fixed sidebars {sides}: {match}");
-            var rejected = ScrollStitcher.Match(ScrollStitcher.Pixels(first), ScrollStitcher.Pixels(unrelated), width, height);
-            Require(rejected.Kind is ScrollStitcher.MatchKind.NoOverlap or ScrollStitcher.MatchKind.Ambiguous, "stationary sidebars cannot join unrelated content");
-        }
-        Console.WriteLine("Fixed left/right sidebars: moving content joins, unrelated views remain rejected: OK");
     }
     private static string GuidFromRandom(Random random) => new string(Enumerable.Range(0, random.Next(3, 9)).Select(_ => (char)('a' + random.Next(26))).ToArray());
     internal static void Pump(int milliseconds)
@@ -102,7 +74,7 @@ internal static class ScrollChecks
         };
         session.ContentRendered += (_, _) =>
         {
-            first = (byte[]?)type.GetField("previous", Private)!.GetValue(session);
+            first = (byte[]?)type.GetProperty("InitialPixels")!.GetValue(session);
             Require(first is not null, "initial frame captured before inviting the user to scroll");
             ticker.Start();
         };
@@ -116,40 +88,11 @@ internal static class ScrollChecks
             using var bmp = new System.Drawing.Bitmap(result!);
             var scale = PresentationSource.FromVisual(host)!.CompositionTarget!.TransformToDevice.M22;
             Require(Math.Abs(bmp.Height - (bounds.Height + count * increment * scale)) <= 2, "includes initial and all continuous displacements");
-            var joined = ScrollStitcher.Pixels(bmp);
+            var joined = Clipsa.Capture.CapturePixels.Read(bmp);
             Require(first!.AsSpan(0, bounds.Width * 30 * 4).SequenceEqual(joined.AsSpan(0, bounds.Width * 30 * 4)), "first rows preserved pixel-for-pixel");
             Console.WriteLine($"Immediate baseline and {count} continuous displacements ({interval} ms, {increment} DIP/step): OK ({bmp.Width} x {bmp.Height})");
         }
         finally { ticker.Stop(); timeout.Stop(); if (session.IsVisible) session.Close(); host.Close(); if (result is not null) System.IO.File.Delete(result); }
-    }
-    private static void CheckAcceptHistory()
-    {
-        var type = typeof(MainWindow).Assembly.GetType("Clipsa.ScrollCaptureWindow")!;
-        var session = (Window)Activator.CreateInstance(type, new object[] { new System.Drawing.Rectangle(20, 20, 120, 200), 250 })!;
-        var bytes = new byte[120 * 800 * 4]; new Random(13).NextBytes(bytes);
-        for (var n = 3; n < bytes.Length; n += 4) bytes[n] = 255;
-        using var document = new System.Drawing.Bitmap(120, 800, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
-        var data = document.LockBits(new System.Drawing.Rectangle(0, 0, 120, 800), System.Drawing.Imaging.ImageLockMode.WriteOnly, document.PixelFormat);
-        try { System.Runtime.InteropServices.Marshal.Copy(bytes, 0, data.Scan0, bytes.Length); } finally { document.UnlockBits(data); }
-        async Task<bool> Accept(int offset)
-        {
-            using var frame = document.Clone(new System.Drawing.Rectangle(0, offset, 120, 200), document.PixelFormat);
-            return await (Task<bool>)type.GetMethod("Accept", Private)!.Invoke(session, new object[] { frame, ScrollStitcher.Pixels(frame), CancellationToken.None })!;
-        }
-        var task = session.Dispatcher.InvokeAsync(async () =>
-        {
-            Require(await Accept(0), "synthetic first");
-            Require(await Accept(80), "synthetic down");
-            Require(!await Accept(600), "gap rejected");
-            Require(await Accept(160), "recovery uses last accepted, not rejected frame");
-            Require(await Accept(80), "reverse does not duplicate");
-            Require(await Accept(240), "resumed down");
-        }).Task.Unwrap();
-        while (!task.IsCompleted) Pump(20);
-        task.GetAwaiter().GetResult();
-        Require((int)type.GetField("maximum", Private)!.GetValue(session)! == 440, "accumulated height retained");
-        session.Close();
-        Console.WriteLine("Accumulation, rejected-gap recovery and reversing without losing earlier strips: OK");
     }
     private static void Require(bool condition, string message) { if (!condition) throw new Exception(message); }
 }

@@ -11,6 +11,8 @@ internal static class Program
     [STAThread]
     static void Main(string[] args)
     {
+        if (args.Contains("--sharex-only")) { ShareXCaptureChecks.Run(); return; }
+        if (args.Contains("--capture-backend-only")) { DesktopCaptureChecks.Run(); return; }
         if (args.Contains("--held-scroll-only")) { HeldScrollChecks.Run(); return; }
         if (args.Contains("--held-key-only")) { HeldScrollChecks.Run(true); return; }
         if (args.Contains("--held-cancel-only")) { HeldScrollChecks.Run(cancel: true); return; }
@@ -34,6 +36,7 @@ internal static class Program
         var app = new Application { ShutdownMode = ShutdownMode.OnExplicitShutdown };
         app.Resources.MergedDictionaries.Add((ResourceDictionary)Application.LoadComponent(new Uri("/Clipsa;component/Theme.xaml", UriKind.Relative)));
         if (args.Contains("--browser-scroll-only")) { BrowserScrollChecks.Run(); CaptureService.Cleanup(); return; }
+        if (args.Contains("--browser-auto-only")) { BrowserScrollChecks.Run(true); CaptureService.Cleanup(); return; }
         if (args.Contains("--scroll-only")) { CheckScroll(); ScrollChecks.Run(); CaptureService.Cleanup(); return; }
         if (Environment.GetEnvironmentVariable("CLIPSA_BROWSER_QA") == "only")
         {
@@ -172,32 +175,7 @@ internal static class Program
         }
         finally { System.IO.File.Delete(file); }
     }
-    static void CheckScroll()
-    {
-        var random = new Random(42); const int width = 120, height = 180, offset = 57;
-        var page = new byte[width * (height + offset) * 4]; random.NextBytes(page);
-        for (var i = 3; i < page.Length; i += 4) page[i] = 255;
-        var first = page.Take(width * height * 4).ToArray();
-        var second = page.Skip(width * offset * 4).Take(width * height * 4).ToArray();
-        Require(ScrollStitcher.FindOffset(first, second, width, height) == offset, "scroll detects actual overlap");
-        Require(ScrollStitcher.Difference(first, first, width, height) == 0, "identical frame is not appended");
-        var unrelated = new byte[first.Length]; random.NextBytes(unrelated);
-        Require(ScrollStitcher.FindOffset(first, unrelated, width, height) == 0, "unrelated scroll views rejected");
-        const int stickyHeight = 240, top = 24, bottom = 16, body = stickyHeight - top - bottom;
-        var document = new byte[width * 600 * 4]; random.NextBytes(document);
-        var sticky = new byte[width * stickyHeight * 4]; random.NextBytes(sticky);
-        byte[] StickyFrame(int start) { var frame = (byte[])sticky.Clone(); Array.Copy(document, start * width * 4, frame, top * width * 4, body * width * 4); return frame; }
-        var stickyFirst = StickyFrame(100); var stickySecond = StickyFrame(150);
-        var down = ScrollStitcher.Match(stickyFirst, stickySecond, width, stickyHeight);
-        var up = ScrollStitcher.Match(stickySecond, stickyFirst, width, stickyHeight);
-        Require(down.Kind == ScrollStitcher.MatchKind.Matched && down.Offset == 50 && down.FixedTop == top && down.FixedBottom == bottom, "fixed header/footer correctly excluded");
-        Require(up.Kind == ScrollStitcher.MatchKind.Matched && up.Offset == -50, "reverse scroll matched");
-        var periodic = new byte[width * height * 4]; var periodicNext = new byte[periodic.Length];
-        for (var y = 0; y < height; y++) for (var x = 0; x < width; x++) { var i = (y * width + x) * 4; periodic[i] = (byte)(y % 5 * 40); periodicNext[i] = (byte)((y + 2) % 5 * 40); periodic[i + 3] = periodicNext[i + 3] = 255; }
-        Require(ScrollStitcher.Match(periodic, periodicNext, width, height).Kind == ScrollStitcher.MatchKind.Ambiguous, "repeated content rejected as ambiguous");
-        Console.WriteLine("Manual scroll matching and rejection of unrelated frames: OK");
-        Console.WriteLine("Fixed headers/footers, reverse scroll and ambiguous repeated content: OK");
-    }
+    static void CheckScroll() => ShareXCaptureChecks.Run();
     [System.Runtime.InteropServices.DllImport("user32.dll")] static extern bool SetCursorPos(int x, int y);
     [System.Runtime.InteropServices.DllImport("user32.dll")] static extern bool GetCursorPos(out MousePosition point);
     [System.Runtime.InteropServices.DllImport("user32.dll")] static extern IntPtr WindowFromPoint(MousePosition point);
@@ -382,16 +360,6 @@ internal static class Program
                 {
                     var state = (TextBlock)type.GetField("status", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(session)!;
                     Console.WriteLine("Live scroll diagnostic: " + state.Text + "; viewport offset=" + scroller.VerticalOffset);
-                    var previous = (byte[]?)type.GetField("previous", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(session);
-                    using var live = (System.Drawing.Bitmap)type.GetMethod("Capture", BindingFlags.NonPublic | BindingFlags.Instance)!.Invoke(session, null)!;
-                    live.Save(System.IO.Path.Combine(System.IO.Path.GetTempPath(), "clipsa-live-final.png"));
-                    if (previous is not null)
-                    {
-                        var pixels = ScrollStitcher.Pixels(live); var best = Enumerable.Range(0, bounds.Height - 40).Select(x => (Offset: x, Error: ScrollStitcher.Difference(previous, pixels, bounds.Width, bounds.Height, x))).OrderBy(x => x.Error).First();
-                        Console.WriteLine("Best live overlap: " + best);
-                    }
-                    var frames = (System.Collections.IEnumerable)type.GetField("frames", BindingFlags.NonPublic | BindingFlags.Instance)!.GetValue(session)!;
-                    var n = 0; foreach (var frame in frames) { var bmp = (System.Drawing.Bitmap)frame.GetType().GetField("Item1")!.GetValue(frame)!; bmp.Save(System.IO.Path.Combine(System.IO.Path.GetTempPath(), "clipsa-live-" + n++ + ".png")); }
                     session.Close();
                 }
             }

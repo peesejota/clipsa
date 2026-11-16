@@ -123,7 +123,7 @@ if (existing.IsSuccessStatusCode)
 else
 {
     if (existing.StatusCode != System.Net.HttpStatusCode.NotFound) existing.EnsureSuccessStatusCode();
-    using var created = await http.PostAsJsonAsync(api + "/releases", new { tag_name = tag, target_commitish = sourceCommit, name = "Clipsa " + tag, draft = true, prerelease = tag.Contains("-beta."), body = "Windows x64 · Instalador y portable autocontenidos. Manifiesto firmado y SHA256 verificados por la app. Beta sin certificado Authenticode de editor; no desactives tu antivirus. Guarda las capturas antes de actualizar." });
+    using var created = await http.PostAsJsonAsync(api + "/releases", new { tag_name = tag, target_commitish = sourceCommit, name = "Clipsa " + tag, draft = true, prerelease = tag.Contains("-beta."), body = $"Windows x64 · Instalador y portable autocontenidos. Motor de capturas adaptado de ShareX 22.4.0, © ShareX Team. Clipsa © Francisco Serrano Jiménez. GPL-3.0, sin garantía. [Código fuente correspondiente](https://github.com/{Repository}/archive/refs/tags/{tag}.zip) · [Licencia](https://github.com/{Repository}/blob/{tag}/LICENSE). Manifiesto firmado y SHA256 verificados por la app. Beta sin certificado Authenticode de editor. Guarda las capturas antes de actualizar." });
     created.EnsureSuccessStatusCode(); using var data = JsonDocument.Parse(await created.Content.ReadAsStringAsync()); releaseId = data.RootElement.GetProperty("id").GetInt64();
 }
 foreach (var file in Directory.GetFiles(folder).Where(p => Path.GetExtension(p) is ".exe" or ".zip" or ".json" or ".txt" or ".md"))

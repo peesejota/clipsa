@@ -70,7 +70,7 @@ jobs:
           Copy-Item LICENSE,THIRD-PARTY-NOTICES.md,README.md,CHANGELOG.md staging/installed
           New-Item -ItemType Directory staging/installed/docs,staging/installed/licenses/runtime-packages -Force | Out-Null
           Get-ChildItem docs -File -Filter '*.md' | Copy-Item -Destination staging/installed/docs
-          Copy-Item licenses/tendedero-LICENSE.txt staging/installed/licenses
+          Get-ChildItem licenses -File | Copy-Item -Destination staging/installed/licenses
           Add-Type -AssemblyName System.IO.Compression.FileSystem
           $inventory = @()
           foreach ($package in (Get-ChildItem .nuget-ci -Recurse -File -Filter '*.nupkg')) {

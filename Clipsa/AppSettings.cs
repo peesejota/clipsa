@@ -20,7 +20,7 @@ public sealed class AppSettings
     public HotkeySetting Region { get; set; } = HotkeySetting.PrintScreen(2);
     public HotkeySetting Scroll { get; set; } = HotkeySetting.PrintScreen(3);
     public int ScrollSteps { get; set; } = 5;
-    public int ScrollDelay { get; set; } = 250;
+    public int ScrollDelay { get; set; } = 300;
     public double ScrollOverlap { get; set; } = .72;
     public double PanelScale { get; set; } = 1.0;
     public string PanelPlacement { get; set; } = "Top";
@@ -81,7 +81,7 @@ public static class SettingsStore
         value.EdgeRevealDelay = Math.Clamp(value.EdgeRevealDelay, 150, 1500);
         value.EdgeHideDelay = Math.Clamp(value.EdgeHideDelay, 200, 5000);
         value.GlassOpacity = Math.Clamp(value.GlassOpacity, 0, 100);
-        value.ScrollDelay = Math.Clamp(value.ScrollDelay, 100, 400);
+        value.ScrollDelay = Math.Clamp(value.ScrollDelay, 100, 1000);
         value.CaptureMonitor ??= ""; value.UpdateFeedUrl ??= "";
         if (string.IsNullOrWhiteSpace(value.UpdateFeedUrl)) { value.UpdateFeedUrl = UpdateService.DefaultFeed; if (value.SchemaVersion < 2) value.CheckUpdatesOnStartup = true; }
         if (string.IsNullOrWhiteSpace(value.SaveFolder)) value.SaveFolder = AppPaths.IsPortable ? "." : AppPaths.DefaultSaveFolder;

@@ -66,7 +66,7 @@ internal static class GuidedScrollChecks
         // Establish the same user-selected target as the real region gesture.
         SetCursorPos(bounds.Left + bounds.Width / 2, bounds.Top + bounds.Height / 2);
         mouse_event(2, 0, 0, 0, UIntPtr.Zero); Thread.Sleep(40); mouse_event(4, 0, 0, 0, UIntPtr.Zero); Thread.Sleep(100);
-        session.ContentRendered += (_, _) => { baseline = (byte[]?)type.GetField("previous", flags)!.GetValue(session); timer.Start(); };
+        session.ContentRendered += (_, _) => { baseline = (byte[]?)type.GetProperty("InitialPixels")!.GetValue(session); timer.Start(); };
         timer.Tick += (_, _) =>
         {
             var state = Read();
@@ -83,7 +83,7 @@ internal static class GuidedScrollChecks
             else if (stage == 2)
             {
                 sawWheel = state.Offset > lastOffset;
-                type.GetMethod("ToggleGuided", flags)!.Invoke(session, null); stage = 3;
+                type.GetMethod("StartAutomatic", flags)!.Invoke(session, null); stage = 3;
             }
             else if (stage == 3 && state.Offset >= 160 && !completing)
             { completing = true; timer.Stop(); type.GetMethod("Finish", flags)!.Invoke(session, null); }
@@ -99,8 +99,8 @@ internal static class GuidedScrollChecks
             var final = Read();
             if (smooth && Math.Abs(final.Offset - final.Target) > 1) throw new Exception("Capture finished before the smooth animation settled.");
             using var bitmap = new System.Drawing.Bitmap(path);
-            if (Math.Abs(bitmap.Height - bounds.Height - final.Offset * final.Scale) > 2) throw new Exception($"Guided scroll output is truncated: actual={bitmap.Height}, initial={bounds.Height}, offset={final.Offset}, target={final.Target}, scale={final.Scale}, position={type.GetField("position", flags)!.GetValue(session)}, top={type.GetField("fixedTop", flags)!.GetValue(session)}, bottom={type.GetField("fixedBottom", flags)!.GetValue(session)}.");
-            var joined = ScrollStitcher.Pixels(bitmap);
+            if (Math.Abs(bitmap.Height - bounds.Height - final.Offset * final.Scale) > 2) throw new Exception($"Guided scroll output is truncated: actual={bitmap.Height}, initial={bounds.Height}, offset={final.Offset}, target={final.Target}, scale={final.Scale}.");
+            var joined = Clipsa.Capture.CapturePixels.Read(bitmap);
             if (!baseline!.AsSpan(0, bounds.Width * 20 * 4).SequenceEqual(joined.AsSpan(0, bounds.Width * 20 * 4))) throw new Exception("Guided scroll lost its initial rows.");
             Console.WriteLine($"Separate target{(smooth ? " with animated scrolling" : "")}: arrow keys, mouse wheel, guided steps, stop/finish and complete output with initial rows OK ({bitmap.Width} x {bitmap.Height}).");
         }

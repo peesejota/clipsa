@@ -2,11 +2,12 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
 using System.Windows;
+using Clipsa.Capture;
 namespace Clipsa;
 public static class CaptureService
 {
     public static string TempFolder => AppPaths.SessionFolder;
-    public static string CaptureScreen(string monitorDeviceName = "") { var b = MonitorService.Resolve(monitorDeviceName).Bounds; using var bmp = new Bitmap(b.Width, b.Height, PixelFormat.Format32bppArgb); using (var g = Graphics.FromImage(bmp)) g.CopyFromScreen(b.Location, System.Drawing.Point.Empty, b.Size); return Save(bmp); }
+    public static string CaptureScreen(string monitorDeviceName = "") { using var bmp = DesktopCapture.Capture(MonitorService.Resolve(monitorDeviceName).Bounds); return Save(bmp); }
     public static string? CaptureRegion(string monitorDeviceName = "") { var overlay = new RegionWindow(monitorDeviceName); overlay.ShowDialog(); Native.DwmFlush(); return overlay.SelectedRectangle is { Width: > 4, Height: > 4 } r ? CaptureRectangle(r) : null; }
     public static string? CaptureScroll(int steps, int delay, double overlap, string monitorDeviceName = "")
     {
@@ -16,11 +17,12 @@ public static class CaptureService
         if (overlay.SelectedRectangle is not { Width: > 40, Height: > 80 } rect) return null;
         Native.DwmFlush(); // Wait for the closed selection overlay to leave the desktop composition.
         var session = new ScrollCaptureWindow(new System.Drawing.Rectangle((int)rect.X, (int)rect.Y, (int)rect.Width, (int)rect.Height), delay);
+        session.StartAutomatically = !overlay.ScrollWhileHeld;
         if (initial is not null) session.PrepareBaseline(initial);
         if (overlay.ScrollWhileHeld) session.UseHoldGesture(overlay.InitialWheelDelta, overlay.InitialScrollKey);
         session.ShowCapture(); return session.ResultPath;
     }
-    private static string CaptureRectangle(Rect r) { using var bmp = new Bitmap((int)r.Width, (int)r.Height, PixelFormat.Format32bppArgb); using (var g = Graphics.FromImage(bmp)) g.CopyFromScreen((int)r.X, (int)r.Y, 0, 0, bmp.Size); return Save(bmp); }
+    private static string CaptureRectangle(Rect r) { using var bmp = DesktopCapture.Capture(new System.Drawing.Rectangle((int)r.X, (int)r.Y, (int)r.Width, (int)r.Height)); return Save(bmp); }
     internal static string Save(Bitmap bmp)
     {
         string? path = null;

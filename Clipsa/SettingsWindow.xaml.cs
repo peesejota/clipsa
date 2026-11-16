@@ -117,8 +117,8 @@ public partial class SettingsWindow : Window
         if (recording is not null) { System.Windows.MessageBox.Show(this, "Termina de elegir el atajo antes de guardar.", "Clipsa"); return; }
         var conflict = HotkeyService.Validate(new[] { settings.Full, settings.Region, settings.Scroll });
         if (conflict is not null) { System.Windows.MessageBox.Show(this, conflict, "Clipsa"); return; }
-        if (!int.TryParse(DelayBox.Text, out var delay) || delay < 100 || delay > 400 || !double.TryParse(ScaleBox.Text, out var scale) || scale < 70 || scale > 140)
-        { System.Windows.MessageBox.Show(this, "El intervalo debe estar entre 100 y 400 ms y el tamaño entre 70 y 140 %.", "Clipsa"); return; }
+        if (!int.TryParse(DelayBox.Text, out var delay) || delay < 100 || delay > 1000 || !double.TryParse(ScaleBox.Text, out var scale) || scale < 70 || scale > 140)
+        { System.Windows.MessageBox.Show(this, "La pausa debe estar entre 100 y 1000 ms y el tamaño entre 70 y 140 %.", "Clipsa"); return; }
         settings.ScrollDelay = delay; settings.PanelScale = scale / 100; settings.GlassOpacity = (int)GlassSlider.Value;
         settings.PanelPlacement = (DockPositionBox.SelectedItem as DockChoice)?.Value ?? "Top";
         settings.PanelVertical = DockVerticalBox.IsChecked == true;
@@ -156,6 +156,7 @@ public partial class SettingsWindow : Window
         catch (Exception ex) { AppDiagnostics.Log(ex, "Guardar ajustes"); System.Windows.MessageBox.Show(this, "No se pudieron guardar los ajustes: " + ex.Message, "Clipsa"); }
     }
     private void Cancel_Click(object s, RoutedEventArgs e) { DialogResult = false; }
+    private void License_Click(object s, RoutedEventArgs e) => LegalNotice.Show(this);
     private void Storage_Click(object s, RoutedEventArgs e) => System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(AppPaths.DataDirectory) { UseShellExecute = true });
     private async void Updates_Click(object s, RoutedEventArgs e)
     {
