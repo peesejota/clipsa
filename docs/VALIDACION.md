@@ -2,6 +2,8 @@
 
 ## Revisión 0.8.0 · 16 de noviembre de 2026
 
+Paquetes del [run 43936594265](https://github.com/peesejota/clipsa/actions/runs/43936594265), commit `227fe9fd87c8b6e95a3ef9ea0da83fe3b2f709ee`. CI superó validación de actualizaciones, atajos, motor de scroll, geometría, instalación/reinstalación/desinstalación y portable extraída. [Release 0.8.0 beta](https://github.com/peesejota/clipsa/releases/tag/v0.8.0-beta.1) publicada; las seis huellas coinciden con los digests públicos y el manifiesto descargado coincide con el local. Se comprobó también el ZIP público de código fuente del tag, con el motor, licencia, procedencia, instrucciones de compilación y código del instalador. El paquete portable contiene GPL, créditos, licencias MIT previas y documentación. Canal activado después de verificar los archivos. Kaspersky 21.27: 1.012 objetos, cero detecciones, sospechas, omisiones o errores; informe local `docs/verificacion/kaspersky-0.8.0-scan.txt`. Los manifiestos están firmados; EXE/instalador continúan sin Authenticode y no se declara resuelta la alerta histórica de comportamiento.
+
 Referencia fijada: ShareX 22.4.0, commit `08bfff15e748a945944e609aca7faffbe888c7af`. Adaptados Capture/DrawNative de WindowsImageInterop, CombineImages de ScrollingCaptureManager y métodos de entrada de InputManager/ScrollingCaptureManager. Avisos y modificaciones en licenses/ShareX-PROVENANCE.md; consentimiento del autor para distribuir la obra combinada bajo GPL-3.0. El motor anterior ScrollStitcher se elimina, no se usa como fallback.
 
 Pruebas puras: resultado completo comparado píxel a píxel con el documento esperado, cabecera/pie fijo, múltiples uniones acumuladas, final repetido sin duplicación, rechazo y recuperación tras una vista ajena, avance estimado sólo cuando se habilita y marcado, áreas estrechas y cancelación. Prueba nativa: coordenadas y color BGRA correctos, alfa opaco, memoria independiente y 120 capturas consecutivas con 19 → 19 identificadores GDI. Se corrigió una dependencia de memoria nativa temporal detectada en la adaptación inicial antes de distribuirla.
@@ -9,6 +11,8 @@ Pruebas puras: resultado completo comparado píxel a píxel con el documento esp
 Pruebas locales sobre destinos reales: scroll continuo 250 × 525 y 250 × 1225 px; rueda/flechas mantenidas y guardado al soltar 350 × 380 px; Escape/clic derecho sin PNG residual; destino animado 350 × 561 px con altura correspondiente al desplazamiento final y primeras filas conservadas. La batería completa de edición, recorte/teclado, arrastre, transparencia e iconos también pasó.
 
 Chrome real, perfil temporal y página servida sólo por localhost: 15 desplazamientos continuos, salida 902 × 1081 px y 456 CSS px; automático con entradas nativas de rueda, salida 902 × 1136 px y 500 CSS px, contrastando altura con el desplazamiento comunicado por la página. Se corrigió el servidor de QA para continuar después de conexiones HTTP canceladas por el navegador y se dio foco explícito a su ventana antes de las entradas; los primeros intentos fallidos no se presentan como éxito. No se usó el perfil del usuario ni se certifican todos los dispositivos físicos.
+
+Una repetición final del automático de Chrome se interrumpió por cambio de ventana activa; el motor se detuvo según su comprobación de foco y esa repetición no se declara como captura completa. El caso completo descrito arriba sí pasó. Las comprobaciones de seguridad de destino no se desactivaron para forzar la prueba.
 
 ## Revisión 0.7.0 · 15 de noviembre de 2026
 
